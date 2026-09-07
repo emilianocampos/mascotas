@@ -108,3 +108,20 @@ export function getStatusBadge(status: ReportStatus): { label: string; colorClas
       return { label: status, colorClass: 'bg-slate-500/10 text-slate-700 border-slate-500/20' };
   }
 }
+
+export function parseGeoLocation(loc: any): { latitude: number; longitude: number } | null {
+  if (!loc) return null;
+  if (typeof loc === 'object' && typeof loc.latitude === 'number' && typeof loc.longitude === 'number') {
+    return { latitude: loc.latitude, longitude: loc.longitude };
+  }
+  if (typeof loc === 'object' && Array.isArray(loc.coordinates) && loc.coordinates.length >= 2) {
+    return { latitude: Number(loc.coordinates[1]), longitude: Number(loc.coordinates[0]) };
+  }
+  if (typeof loc === 'string') {
+    const match = loc.match(/POINT\s*\(\s*([-\d.]+)\s+([-\d.]+)\s*\)/i);
+    if (match) {
+      return { latitude: parseFloat(match[2]), longitude: parseFloat(match[1]) };
+    }
+  }
+  return null;
+}

@@ -11,7 +11,8 @@ import {
   getSpeciesEmoji, 
   getSpeciesLabel, 
   getSizeLabel, 
-  getGenderLabel 
+  getGenderLabel,
+  parseGeoLocation
 } from '@/lib/utils';
 import { 
   MapPin, 
@@ -284,11 +285,15 @@ export default async function DetalleMascotaPage({ params }: Props) {
             <p className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
               {report.approximate_address}
             </p>
-            {location && (
-              <p className="text-xs text-zinc-500">
-                Coordenadas: {location.latitude.toFixed(4)}, {location.longitude.toFixed(4)}
-              </p>
-            )}
+            {(() => {
+              const parsed = parseGeoLocation(location);
+              if (!parsed || typeof parsed.latitude !== 'number' || typeof parsed.longitude !== 'number') return null;
+              return (
+                <p className="text-xs text-zinc-500">
+                  Coordenadas: {parsed.latitude.toFixed(4)}, {parsed.longitude.toFixed(4)}
+                </p>
+              );
+            })()}
           </div>
 
         </div>
