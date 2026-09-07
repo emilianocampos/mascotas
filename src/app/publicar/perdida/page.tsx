@@ -6,7 +6,7 @@ import PhotoUploader from '@/components/forms/PhotoUploader';
 import LocationPicker from '@/components/map/LocationPicker';
 import { lostReportSchema, LostReportInput } from '@/lib/validations/lost-report.schema';
 import { PetSpecies, PetSize, PetGender } from '@/types';
-import { PlusCircle, ShieldAlert, Sparkles, CheckCircle2, ArrowRight } from 'lucide-react';
+import { PlusCircle, ShieldAlert, Sparkles, CheckCircle2, ArrowRight, Clock } from 'lucide-react';
 import { createLostReportInDb } from '@/services/reports.service';
 
 const FRIENDLY_LOST_LABELS: Record<string, string> = {
@@ -278,9 +278,24 @@ export default function PublicarPerdidaPage() {
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-zinc-700 dark:text-zinc-300 mb-1">
-                Fecha y hora aproximada <span className="text-rose-500">*</span>
-              </label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-bold text-zinc-700 dark:text-zinc-300">
+                  Fecha y hora aproximada <span className="text-rose-500">*</span>
+                </label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const now = new Date();
+                    const pad = (n: number) => n.toString().padStart(2, '0');
+                    const localIso = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
+                    setFormData((prev) => ({ ...prev, last_seen_date: localIso }));
+                  }}
+                  className="inline-flex items-center gap-1 text-[11px] font-bold text-orange-600 dark:text-orange-400 hover:text-orange-700 bg-orange-50 dark:bg-orange-950/40 hover:bg-orange-100 px-2 py-0.5 rounded-md border border-orange-200 dark:border-orange-800/60 transition-colors cursor-pointer"
+                >
+                  <Clock className="w-3 h-3" />
+                  Poner fecha y hora actual
+                </button>
+              </div>
               <input
                 type="datetime-local"
                 value={formData.last_seen_date || ''}

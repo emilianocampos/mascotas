@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import PhotoUploader from '@/components/forms/PhotoUploader';
 import LocationPicker from '@/components/map/LocationPicker';
 import { sightingSchema, SightingInput } from '@/lib/validations/sighting.schema';
-import { Eye, CheckCircle2, ArrowRight } from 'lucide-react';
+import { Eye, CheckCircle2, ArrowRight, Clock } from 'lucide-react';
 import { createSightingInDb } from '@/services/reports.service';
 
 export default function PublicarAvistamientoPage() {
@@ -139,14 +139,29 @@ export default function PublicarAvistamientoPage() {
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-zinc-700 dark:text-zinc-300 mb-1">
-                Fecha y Hora <span className="text-rose-500">*</span>
-              </label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-bold text-zinc-700 dark:text-zinc-300">
+                  Fecha y Hora <span className="text-rose-500">*</span>
+                </label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const now = new Date();
+                    const pad = (n: number) => n.toString().padStart(2, '0');
+                    const localIso = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
+                    setFormData((prev) => ({ ...prev, sighting_date: localIso }));
+                  }}
+                  className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-600 dark:text-amber-400 hover:text-amber-700 bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 px-2 py-0.5 rounded-md border border-amber-200 dark:border-amber-800/60 transition-colors cursor-pointer"
+                >
+                  <Clock className="w-3 h-3" />
+                  Poner fecha y hora actual
+                </button>
+              </div>
               <input
                 type="datetime-local"
                 value={formData.sighting_date || ''}
                 onChange={(e) => setFormData((prev) => ({ ...prev, sighting_date: e.target.value }))}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-sm focus:outline-none"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
               />
             </div>
           </div>
