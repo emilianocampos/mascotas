@@ -101,22 +101,22 @@ export default function InteractiveMap({
         const emoji = getSpeciesEmoji(m.species);
 
         const customHtml = `
-          <div style="width: 40px; height: 48px; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; cursor: pointer;">
-            <div class="w-10 h-10 rounded-2xl ${colorBg} border-2 ${borderColor} shadow-lg flex items-center justify-center text-white text-lg transition-transform duration-200 ${
-              isSelected ? 'scale-125 ring-4 ring-orange-400' : 'hover:scale-110'
+          <div style="width: 30px; height: 38px; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; cursor: pointer;">
+            <div class="w-7 h-7 rounded-xl ${colorBg} border-2 ${borderColor} shadow-md flex items-center justify-center text-white text-sm transition-transform duration-200 ${
+              isSelected ? 'scale-125 ring-3 ring-orange-400' : 'hover:scale-110'
             }">
               <span>${emoji}</span>
             </div>
-            <div class="w-3 h-3 border-r-2 border-b-2 ${borderColor} transform rotate-45 -mt-1.5 ${colorBg}"></div>
+            <div class="w-2.5 h-2.5 border-r-2 border-b-2 ${borderColor} transform rotate-45 -mt-1 ${colorBg}"></div>
           </div>
         `;
 
         const icon = L.divIcon({
           html: customHtml,
           className: 'custom-map-marker',
-          iconSize: [40, 48],
-          iconAnchor: [20, 48],
-          popupAnchor: [0, -48],
+          iconSize: [30, 38],
+          iconAnchor: [15, 38],
+          popupAnchor: [0, -38],
         });
 
         const marker = L.marker([m.latitude, m.longitude], { icon }).addTo(

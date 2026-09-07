@@ -59,21 +59,21 @@ export default function LocationPicker({
 
         const customPin = L.divIcon({
           html: `
-            <div style="width: 36px; height: 48px; position: relative; cursor: grab; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.35));">
-              <svg width="36" height="48" viewBox="0 0 36 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <!-- Pin Body with Sharp Needle Tip at x=18, y=48 -->
-                <path d="M18 0C8.05887 0 0 8.05887 0 18C0 28.5 14.5 43.5 18 48C21.5 43.5 36 28.5 36 18C36 8.05887 27.9411 0 18 0Z" fill="#E11D48"/>
+            <div style="width: 28px; height: 38px; position: relative; cursor: grab; filter: drop-shadow(0 3px 5px rgba(0,0,0,0.35));">
+              <svg width="28" height="38" viewBox="0 0 28 38" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <!-- Pin Body with Sharp Needle Tip at x=14, y=38 -->
+                <path d="M14 0C6.268 0 0 6.268 0 14C0 22.5 11 34.5 14 38C17 34.5 28 22.5 28 14C28 6.268 21.732 0 14 0Z" fill="#E11D48"/>
                 <!-- White inner badge -->
-                <circle cx="18" cy="18" r="13" fill="#FFFFFF"/>
+                <circle cx="14" cy="14" r="10" fill="#FFFFFF"/>
                 <!-- Center point -->
-                <circle cx="18" cy="18" r="7" fill="#E11D48"/>
+                <circle cx="14" cy="14" r="5.5" fill="#E11D48"/>
               </svg>
             </div>
           `,
           className: 'picker-pin-wrapper',
-          iconSize: [36, 48],
-          iconAnchor: [18, 48],
-          popupAnchor: [0, -48],
+          iconSize: [28, 38],
+          iconAnchor: [14, 38],
+          popupAnchor: [0, -38],
         });
 
         const marker = L.marker([coords.lat, coords.lng], {
