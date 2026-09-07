@@ -157,7 +157,11 @@ export async function getNearbyFoundReports(
   return (data || []) as FoundReport[];
 }
 
-// 4. Obtener Ficha Completa de Reporte por ID
+export type UnifiedReport = 
+  | (LostReport & { report_type: 'lost' })
+  | (FoundReport & { report_type: 'found' });
+
+// 4. Obtener Ficha de Mascota Perdida por ID
 export async function getLostReportById(id: string): Promise<LostReport | null> {
   const supabase = createBrowserClient();
   const { data, error } = await supabase
@@ -167,10 +171,37 @@ export async function getLostReportById(id: string): Promise<LostReport | null> 
     .single();
 
   if (error || !data) {
-    console.error('Reporte no encontrado en Supabase:', error);
     return null;
   }
   return data as LostReport;
+}
+
+// 4b. Obtener Ficha de Mascota Encontrada por ID
+export async function getFoundReportById(id: string): Promise<FoundReport | null> {
+  const supabase = createBrowserClient();
+  const { data, error } = await supabase
+    .from('found_reports')
+    .select('*, pet:pets(*), profile:profiles(*)')
+    .eq('id', id)
+    .single();
+
+  if (error || !data) {
+    return null;
+  }
+  return data as FoundReport;
+}
+
+// 4c. Obtener Ficha Unificada (sea Perdida o Encontrada)
+export async function getUnifiedReportById(id: string): Promise<UnifiedReport | null> {
+  const lost = await getLostReportById(id);
+  if (lost) {
+    return { ...lost, report_type: 'lost' };
+  }
+  const found = await getFoundReportById(id);
+  if (found) {
+    return { ...found, report_type: 'found' };
+  }
+  return null;
 }
 
 // 5. Obtener Avistamientos de una Mascota Perdida
