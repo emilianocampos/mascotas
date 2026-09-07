@@ -516,56 +516,84 @@ ALTER TABLE provinces ENABLE ROW LEVEL SECURITY;
 ALTER TABLE cities ENABLE ROW LEVEL SECURITY;
 
 -- Jerarquía geográfica: Lectura pública
+DROP POLICY IF EXISTS "Public Read Countries" ON countries;
 CREATE POLICY "Public Read Countries" ON countries FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Public Read Provinces" ON provinces;
 CREATE POLICY "Public Read Provinces" ON provinces FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Public Read Cities" ON cities;
 CREATE POLICY "Public Read Cities" ON cities FOR SELECT USING (true);
 
 -- Perfiles: Lectura pública (nombre, score), Edición solo propietario
+DROP POLICY IF EXISTS "Public Read Profiles" ON profiles;
 CREATE POLICY "Public Read Profiles" ON profiles FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Owner Update Profile" ON profiles;
 CREATE POLICY "Owner Update Profile" ON profiles FOR UPDATE USING (auth.uid() = id) WITH CHECK (auth.uid() = id);
 
 -- Mascotas: Lectura pública, Inserción pública sin fricción
+DROP POLICY IF EXISTS "Public Read Pets" ON pets;
 CREATE POLICY "Public Read Pets" ON pets FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Authenticated Insert Pets" ON pets;
+DROP POLICY IF EXISTS "Public Insert Pets" ON pets;
 CREATE POLICY "Public Insert Pets" ON pets FOR INSERT WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Owner Update Pets" ON pets;
 CREATE POLICY "Owner Update Pets" ON pets FOR UPDATE USING (auth.uid() = owner_id);
 
 -- Lost Reports:
--- 1. Lectura pública de reportes activos o reunidos (oculta UNDER_REVIEW / REMOVED)
+DROP POLICY IF EXISTS "Public Read Active Lost Reports" ON lost_reports;
 CREATE POLICY "Public Read Active Lost Reports" ON lost_reports FOR SELECT 
 USING (status IN ('ACTIVE', 'FOUND', 'REUNITED') OR (auth.uid() IS NOT NULL AND auth.uid() = user_id));
 
--- 2. Creación pública sin fricción
+DROP POLICY IF EXISTS "User Create Lost Report" ON lost_reports;
+DROP POLICY IF EXISTS "Public Create Lost Report" ON lost_reports;
 CREATE POLICY "Public Create Lost Report" ON lost_reports FOR INSERT 
 WITH CHECK (true);
 
--- 3. Edición / Cierre por el dueño
+DROP POLICY IF EXISTS "Owner Update Lost Report" ON lost_reports;
 CREATE POLICY "Owner Update Lost Report" ON lost_reports FOR UPDATE 
 USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
 
 -- Found Reports:
+DROP POLICY IF EXISTS "Public Read Active Found Reports" ON found_reports;
 CREATE POLICY "Public Read Active Found Reports" ON found_reports FOR SELECT 
 USING (status IN ('ACTIVE', 'FOUND', 'REUNITED') OR (auth.uid() IS NOT NULL AND auth.uid() = finder_id));
 
+DROP POLICY IF EXISTS "User Create Found Report" ON found_reports;
+DROP POLICY IF EXISTS "Public Create Found Report" ON found_reports;
 CREATE POLICY "Public Create Found Report" ON found_reports FOR INSERT 
 WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Finder Update Found Report" ON found_reports;
 CREATE POLICY "Finder Update Found Report" ON found_reports FOR UPDATE 
 USING (auth.uid() = finder_id) WITH CHECK (auth.uid() = finder_id);
 
 -- Sightings:
+DROP POLICY IF EXISTS "Public Read Sightings" ON sightings;
 CREATE POLICY "Public Read Sightings" ON sightings FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Authenticated Insert Sightings" ON sightings;
+DROP POLICY IF EXISTS "Public Insert Sightings" ON sightings;
 CREATE POLICY "Public Insert Sightings" ON sightings FOR INSERT WITH CHECK (true);
 
 -- Notificaciones: Solo el destinatario
+DROP POLICY IF EXISTS "User Access Own Notifications" ON notifications;
 CREATE POLICY "User Access Own Notifications" ON notifications FOR ALL 
 USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
 
 -- Zonas de Alerta: Solo el usuario dueño
+DROP POLICY IF EXISTS "User Manage Own Alert Zones" ON user_alert_zones;
 CREATE POLICY "User Manage Own Alert Zones" ON user_alert_zones FOR ALL 
 USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
 
 -- Denuncias: Creación por usuarios autenticados, visualización por moderadores/admins
+DROP POLICY IF EXISTS "User Create Moderation Report" ON moderation_reports;
 CREATE POLICY "User Create Moderation Report" ON moderation_reports FOR INSERT WITH CHECK (auth.uid() = reporter_id);
+
+DROP POLICY IF EXISTS "Moderators Read Moderation Reports" ON moderation_reports;
 CREATE POLICY "Moderators Read Moderation Reports" ON moderation_reports FOR SELECT 
 USING (EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('moderator', 'admin')));
 
@@ -701,15 +729,19 @@ END;
 $$;
 
 -- D. Políticas RLS Adicionales para que Moderadores y Admins tengan lectura y edición total
+DROP POLICY IF EXISTS "Admins Full Access Lost Reports" ON lost_reports;
 CREATE POLICY "Admins Full Access Lost Reports" ON lost_reports FOR ALL
 USING (EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('moderator', 'admin')));
 
+DROP POLICY IF EXISTS "Admins Full Access Found Reports" ON found_reports;
 CREATE POLICY "Admins Full Access Found Reports" ON found_reports FOR ALL
 USING (EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('moderator', 'admin')));
 
+DROP POLICY IF EXISTS "Admins Full Access Sightings" ON sightings;
 CREATE POLICY "Admins Full Access Sightings" ON sightings FOR ALL
 USING (EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('moderator', 'admin')));
 
+DROP POLICY IF EXISTS "Admins Manage Moderation Reports" ON moderation_reports;
 CREATE POLICY "Admins Manage Moderation Reports" ON moderation_reports FOR ALL
 USING (EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('moderator', 'admin')));
 
