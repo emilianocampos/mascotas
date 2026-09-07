@@ -1,8 +1,14 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { searchGeorefAddresses, GeorefAddressSuggestion } from '@/services/georef.service';
-import { Search, MapPin, Loader2, Check } from 'lucide-react';
+import { Search, MapPin, Loader2 } from 'lucide-react';
+
+export interface StreetSuggestion {
+  id: string;
+  name: string;
+  lat: number;
+  lng: number;
+}
 
 interface AddressAutocompleteProps {
   value: string;
@@ -15,12 +21,12 @@ interface AddressAutocompleteProps {
 export default function AddressAutocomplete({
   value,
   onChange,
-  placeholder = 'Ej: San Martín 450 o Conesa',
+  placeholder = 'Ej: San Martín 450 o Conesa y Cutillo',
   label = 'Calle y Número o Esquina',
   required = true,
 }: AddressAutocompleteProps) {
   const [inputValue, setInputValue] = useState(value || '');
-  const [suggestions, setSuggestions] = useState<GeorefAddressSuggestion[]>([]);
+  const [suggestions, setSuggestions] = useState<StreetSuggestion[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -30,20 +36,49 @@ export default function AddressAutocomplete({
     setInputValue(value || '');
   }, [value]);
 
-  // Debounce para consultar Georef AR
+  // Debounce para consultar OpenStreetMap en Trelew / Chubut
   useEffect(() => {
-    if (!inputValue || inputValue.trim().length < 2) {
+    if (!inputValue || inputValue.trim().length < 3) {
       setSuggestions([]);
       return;
     }
 
     const timer = setTimeout(async () => {
       setIsLoading(true);
-      const results = await searchGeorefAddresses(inputValue, 'Chubut');
-      setSuggestions(results);
-      setIsLoading(false);
-      setIsOpen(results.length > 0);
-    }, 320);
+      try {
+        const query = encodeURIComponent(`${inputValue.trim()}, Trelew, Chubut`);
+        const res = await fetch(
+          `https://nominatim.openstreetmap.org/search?format=jsonv2&q=${query}&addressdetails=1&limit=5`,
+          {
+            headers: {
+              'Accept-Language': 'es',
+            },
+          }
+        );
+
+        if (res.ok) {
+          const data = await res.json();
+          const items: StreetSuggestion[] = (data || []).map((item: any) => {
+            const addr = item.address || {};
+            const road = addr.road || addr.pedestrian || addr.street || addr.footway || addr.avenue || '';
+            const houseNumber = addr.house_number || '';
+            const streetName = road ? (houseNumber ? `${road} ${houseNumber}` : road) : item.display_name.split(',')[0];
+            return {
+              id: item.place_id?.toString() || Math.random().toString(),
+              name: streetName.trim(),
+              lat: parseFloat(item.lat),
+              lng: parseFloat(item.lon),
+            };
+          });
+          setSuggestions(items);
+          setIsOpen(items.length > 0);
+        }
+      } catch (err) {
+        console.error('Error al buscar calles en OpenStreetMap:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    }, 350);
 
     return () => clearTimeout(timer);
   }, [inputValue]);
@@ -59,21 +94,10 @@ export default function AddressAutocomplete({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const handleSelect = (s: GeorefAddressSuggestion) => {
-    const raw = s.street ? (s.number ? `${s.street} ${s.number}` : s.street) : s.name;
-    const cleanStreet = raw
-      .split('(')[0]
-      .split(',')[0]
-      .replace(/\s+/g, ' ')
-      .trim();
-    setInputValue(cleanStreet);
+  const handleSelect = (s: StreetSuggestion) => {
+    setInputValue(s.name);
     setIsOpen(false);
-
-    if (s.latitude && s.longitude) {
-      onChange(cleanStreet, { lat: s.latitude, lng: s.longitude });
-    } else {
-      onChange(cleanStreet);
-    }
+    onChange(s.name, { lat: s.lat, lng: s.lng });
   };
 
   return (
@@ -123,21 +147,14 @@ export default function AddressAutocomplete({
               >
                 <div className="flex items-center gap-2">
                   <MapPin className="w-3.5 h-3.5 text-orange-500 shrink-0" />
-                  <div>
-                    <p className="font-bold text-zinc-900 dark:text-zinc-100">
-                      {s.street ? (s.number ? `${s.street} ${s.number}` : s.street) : s.name}
-                    </p>
-                    <p className="text-[10px] text-zinc-400">
-                      {s.department}, {s.province}
-                    </p>
-                  </div>
+                  <p className="font-bold text-zinc-900 dark:text-zinc-100">
+                    {s.name}
+                  </p>
                 </div>
 
-                {s.latitude && s.longitude && (
-                  <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-1.5 py-0.5 rounded">
-                    GPS
-                  </span>
-                )}
+                <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-1.5 py-0.5 rounded">
+                  Centrar
+                </span>
               </li>
             ))}
           </ul>
