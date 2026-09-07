@@ -59,15 +59,21 @@ export default function LocationPicker({
 
         const customPin = L.divIcon({
           html: `
-            <div class="relative flex items-center justify-center transform -translate-x-1/2 -translate-y-full">
-              <div class="w-9 h-9 rounded-full bg-rose-600 border-2 border-white shadow-xl flex items-center justify-center text-white text-base animate-bounce">
-                📍
-              </div>
+            <div style="width: 36px; height: 48px; position: relative; cursor: grab; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.35));">
+              <svg width="36" height="48" viewBox="0 0 36 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <!-- Pin Body with Sharp Needle Tip at x=18, y=48 -->
+                <path d="M18 0C8.05887 0 0 8.05887 0 18C0 28.5 14.5 43.5 18 48C21.5 43.5 36 28.5 36 18C36 8.05887 27.9411 0 18 0Z" fill="#E11D48"/>
+                <!-- White inner badge -->
+                <circle cx="18" cy="18" r="13" fill="#FFFFFF"/>
+                <!-- Center point -->
+                <circle cx="18" cy="18" r="7" fill="#E11D48"/>
+              </svg>
             </div>
           `,
-          className: 'picker-pin',
-          iconSize: [36, 42],
-          iconAnchor: [18, 42],
+          className: 'picker-pin-wrapper',
+          iconSize: [36, 48],
+          iconAnchor: [18, 48],
+          popupAnchor: [0, -48],
         });
 
         const marker = L.marker([coords.lat, coords.lng], {
