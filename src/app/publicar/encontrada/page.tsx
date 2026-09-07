@@ -229,6 +229,19 @@ export default function PublicarEncontradaPage() {
               </select>
             </div>
           </div>
+
+          <div>
+            <label className="block text-xs font-bold text-zinc-700 dark:text-zinc-300 mb-1">
+              Descripción general / Estado del animal <span className="text-rose-500">*</span>
+            </label>
+            <textarea
+              rows={3}
+              placeholder="Ej: Tenía collar verde, parece bien cuidado y es muy cariñoso. Lo tengo alimentado y protegido..."
+              value={formData.description || ''}
+              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 text-zinc-900 dark:text-zinc-100"
+            />
+          </div>
         </div>
 
         {/* Ubicación */}
