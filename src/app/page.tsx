@@ -1,69 +1,192 @@
-import Image from "next/image";
+import React from 'react';
+import Link from 'next/link';
+import { 
+  PlusCircle, 
+  HeartHandshake, 
+  Eye, 
+  Compass, 
+  MapPin, 
+  Sparkles,
+  Heart,
+  ChevronRight,
+  ShieldCheck,
+  QrCode
+} from 'lucide-react';
+import { getNearbyLostReports, getNearbyFoundReports, getAdminStats } from '@/services/reports.service';
+import { PetReportCard } from '@/components/cards/PetReportCard';
 
-export default function Home() {
+export const revalidate = 60; // ISR cada 60 segundos
+
+export default async function HomePage() {
+  const [lostReports, foundReports, stats] = await Promise.all([
+    getNearbyLostReports(-43.24895, -65.30505, 10000),
+    getNearbyFoundReports(-43.24895, -65.30505, 10000),
+    getAdminStats(),
+  ]);
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
+    <div className="space-y-12 pb-16">
+      
+      {/* Hero Section — Comunicación Inmediata y 4 Acciones Principales */}
+      <section className="relative overflow-hidden bg-gradient-to-b from-orange-50 via-zinc-50 to-white dark:from-zinc-900/60 dark:via-zinc-950 dark:to-zinc-950 border-b border-zinc-200/60 dark:border-zinc-800/60 py-12 sm:py-16 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-4xl mx-auto text-center space-y-4">
+          
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-orange-100 dark:bg-orange-950/60 text-orange-700 dark:text-orange-300 text-xs font-bold uppercase tracking-wider shadow-xs">
+            <span className="w-2 h-2 rounded-full bg-orange-500 animate-ping"></span>
+            Red Ciudadana • Trelew, Chubut
+          </div>
+
+          <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight text-zinc-900 dark:text-white leading-[1.15]">
+            Ayudemos a reunir <br className="hidden sm:block" />
+            <span className="bg-gradient-to-r from-orange-600 via-rose-500 to-amber-500 bg-clip-text text-transparent">
+              mascotas con sus familias
+            </span>
           </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+
+          <p className="text-base sm:text-lg text-zinc-600 dark:text-zinc-300 max-w-2xl mx-auto">
+            Publicá en 60 segundos, informá un avistamiento geolocalizado o explorá el mapa en tiempo real.
           </p>
+
+          {/* 4 BOTONES DE ACCIÓN PRINCIPALES */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 pt-6 max-w-4xl mx-auto">
+            
+            {/* 1. PERDÍ UNA MASCOTA */}
+            <Link
+              href="/publicar/perdida"
+              className="group relative flex flex-col items-center justify-center p-5 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white shadow-lg shadow-rose-600/25 hover:shadow-rose-600/40 transform active:scale-95 transition-all text-center"
+            >
+              <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center mb-2.5 group-hover:scale-110 transition-transform">
+                <PlusCircle className="w-6 h-6" />
+              </div>
+              <span className="text-base font-extrabold uppercase tracking-tight">Perdí mi mascota</span>
+              <span className="text-xs text-rose-100 mt-0.5">Crear alerta inmediata</span>
+            </Link>
+
+            {/* 2. ENCONTRÉ UNA MASCOTA */}
+            <Link
+              href="/publicar/encontrada"
+              className="group relative flex flex-col items-center justify-center p-5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-600/25 hover:shadow-emerald-600/40 transform active:scale-95 transition-all text-center"
+            >
+              <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center mb-2.5 group-hover:scale-110 transition-transform">
+                <HeartHandshake className="w-6 h-6" />
+              </div>
+              <span className="text-base font-extrabold uppercase tracking-tight">Encontré una</span>
+              <span className="text-xs text-emerald-100 mt-0.5">Buscar a su dueño</span>
+            </Link>
+
+            {/* 3. VI UNA MASCOTA */}
+            <Link
+              href="/publicar/avistamiento"
+              className="group relative flex flex-col items-center justify-center p-5 rounded-2xl bg-amber-500 hover:bg-amber-600 text-white shadow-lg shadow-amber-500/25 hover:shadow-amber-500/40 transform active:scale-95 transition-all text-center"
+            >
+              <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center mb-2.5 group-hover:scale-110 transition-transform">
+                <Eye className="w-6 h-6" />
+              </div>
+              <span className="text-base font-extrabold uppercase tracking-tight">Vi una mascota</span>
+              <span className="text-xs text-amber-100 mt-0.5">Reportar avistamiento</span>
+            </Link>
+
+            {/* 4. EXPLORAR MAPA */}
+            <Link
+              href="/mapa"
+              className="group relative flex flex-col items-center justify-center p-5 rounded-2xl bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-white shadow-lg shadow-zinc-900/20 transform active:scale-95 transition-all text-center border border-zinc-700"
+            >
+              <div className="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center mb-2.5 group-hover:scale-110 transition-transform">
+                <Compass className="w-6 h-6 text-orange-400" />
+              </div>
+              <span className="text-base font-extrabold uppercase tracking-tight">Explorar Mapa</span>
+              <span className="text-xs text-zinc-300 mt-0.5">Ver pines en vivo</span>
+            </Link>
+
+          </div>
+
+          {/* Métricas Reales en Vivo */}
+          <div className="grid grid-cols-3 gap-2 sm:gap-4 pt-8 max-w-xl mx-auto border-t border-zinc-200/80 dark:border-zinc-800/80">
+            <div className="bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xs p-3 rounded-xl border border-zinc-200/60 dark:border-zinc-800">
+              <div className="text-2xl sm:text-3xl font-black text-emerald-600 dark:text-emerald-400">
+                {stats.total_reunited_pets}
+              </div>
+              <div className="text-[11px] sm:text-xs font-semibold text-zinc-600 dark:text-zinc-400">
+                Mascotas Reunidas ❤️
+              </div>
+            </div>
+            <div className="bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xs p-3 rounded-xl border border-zinc-200/60 dark:border-zinc-800">
+              <div className="text-2xl sm:text-3xl font-black text-rose-600 dark:text-rose-400">
+                {stats.active_lost_reports}
+              </div>
+              <div className="text-[11px] sm:text-xs font-semibold text-zinc-600 dark:text-zinc-400">
+                Búsquedas Activas
+              </div>
+            </div>
+            <div className="bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xs p-3 rounded-xl border border-zinc-200/60 dark:border-zinc-800">
+              <div className="text-2xl sm:text-3xl font-black text-amber-500 dark:text-amber-400">
+                {stats.total_sightings}
+              </div>
+              <div className="text-[11px] sm:text-xs font-semibold text-zinc-600 dark:text-zinc-400">
+                Avistamientos
+              </div>
+            </div>
+          </div>
+
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+      </section>
+
+      {/* Grid de Búsquedas Activas en Trelew */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h2 className="text-2xl sm:text-3xl font-black text-zinc-900 dark:text-white flex items-center gap-2">
+              <span className="w-3 h-3 rounded-full bg-rose-500 animate-pulse"></span>
+              Mascotas Perdidas Cerca de Trelew
+            </h2>
+            <p className="text-sm text-zinc-500">
+              Reportes activos ordenados por proximidad y fecha reciente.
+            </p>
+          </div>
+          <Link
+            href="/mapa"
+            className="inline-flex items-center gap-1.5 text-sm font-bold text-orange-600 dark:text-orange-400 hover:underline"
           >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+            Ver todas en el mapa interactivo
+            <ChevronRight className="w-4 h-4" />
+          </Link>
         </div>
-      </main>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {lostReports.map((report) => (
+            <PetReportCard key={report.id} report={report} type="lost" />
+          ))}
+        </div>
+      </section>
+
+      {/* Grid de Mascotas Encontradas */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h2 className="text-2xl sm:text-3xl font-black text-zinc-900 dark:text-white flex items-center gap-2">
+              <span className="w-3 h-3 rounded-full bg-emerald-500"></span>
+              Mascotas Encontradas en Tránsito
+            </h2>
+            <p className="text-sm text-zinc-500">
+              Animales resguardados por vecinos buscando a sus dueños legítimos.
+            </p>
+          </div>
+          <Link
+            href="/publicar/encontrada"
+            className="inline-flex items-center gap-1.5 text-sm font-bold text-emerald-600 dark:text-emerald-400 hover:underline"
+          >
+            ¿Encontraste uno? Publicalo gratis
+            <ChevronRight className="w-4 h-4" />
+          </Link>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {foundReports.map((report) => (
+            <PetReportCard key={report.id} report={report} type="found" />
+          ))}
+        </div>
+      </section>
+
     </div>
   );
 }
