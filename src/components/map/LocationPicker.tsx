@@ -12,12 +12,50 @@ interface LocationPickerProps {
 }
 
 const POPULAR_TRELEW_ZONES = [
-  { name: 'Centro / Plaza Independencia', lat: -43.24895, lng: -65.30505 },
-  { name: 'Laguna Chiquichano', lat: -43.25050, lng: -65.29850 },
-  { name: 'B° Los Aromos', lat: -43.25600, lng: -65.31400 },
-  { name: 'B° Padre Juan', lat: -43.24200, lng: -65.29700 },
-  { name: 'Terminal de Ómnibus', lat: -43.25280, lng: -65.31150 },
+  { name: 'Centro (Plaza)', address: 'Plaza Independencia, Centro', lat: -43.2529, lng: -65.3094 },
+  { name: 'B° Padre Juan / Codepro', address: 'Conesa y Cutillo, B° Padre Juan / Codepro', lat: -43.2435, lng: -65.2965 },
+  { name: 'Laguna Chiquichano', address: 'Laguna Chiquichano (Parque)', lat: -43.2492, lng: -65.2965 },
+  { name: 'B° Los Aromos', address: 'B° Los Aromos', lat: -43.2615, lng: -65.3260 },
+  { name: 'Terminal de Ómnibus', address: 'Terminal de Ómnibus, Trelew', lat: -43.2562, lng: -65.3040 },
 ];
+
+const TRELEW_STREET_MAP: Record<string, string> = {
+  conesa: 'Padre Juan / Codepro',
+  cutillo: 'Padre Juan / Codepro',
+  winter: 'Padre Juan / Codepro',
+  'lloyd jones': 'Padre Juan / Codepro',
+  'josé hernández': 'Padre Juan / Codepro',
+  'jose hernandez': 'Padre Juan / Codepro',
+  'padre juan': 'Padre Juan',
+  'juan muzio': 'Padre Juan / Santa Catalina',
+  'san martín': 'Centro',
+  'san martin': 'Centro',
+  '25 de mayo': 'Centro',
+  '9 de julio': 'Centro',
+  belgrano: 'Centro',
+  fontana: 'Centro',
+  mitre: 'Centro',
+  rivadavia: 'Centro',
+  españa: 'Centro',
+  espana: 'Centro',
+  italia: 'Centro',
+  'lewis jones': 'Laguna Chiquichano',
+  alem: 'Laguna Chiquichano',
+  'soberanía nacional': 'Los Aromos',
+  'soberania nacional': 'Los Aromos',
+  chile: 'Los Aromos',
+  huergo: 'Los Aromos',
+  musters: 'San Martín',
+  corradi: 'Corradi',
+  'carmelo maro': 'Santa Catalina',
+  'fuerte san josé': 'Santa Catalina',
+  'fuerte san jose': 'Santa Catalina',
+  galina: 'Santa Catalina',
+  colombia: 'Don Bosco',
+  paraguay: 'Don Bosco',
+  perú: 'Don Bosco',
+  peru: 'Don Bosco',
+};
 
 export default function LocationPicker({
   initialLat = -43.24895, // Trelew
@@ -44,54 +82,65 @@ export default function LocationPicker({
   const [isGeocoding, setIsGeocoding] = useState(false);
   const [locationStatus, setLocationStatus] = useState<string | null>(null);
 
-  // Resolver de barrios reales de Trelew (filtra nombres catastrales técnicos de OpenStreetMap como 'Chacra 136')
-  const resolveTrelewNeighborhood = (rawName: string | undefined, lat: number, lng: number): string | null => {
-    // 1. Zona B° Padre Juan / Codepro (Conesa, Cutillo, Winter, Lloyd Jones, Eva Perón norte)
-    if (lat >= -43.247 && lat <= -43.236 && lng >= -65.305 && lng <= -65.286) {
+  // Resolver de barrios reales de Trelew (por calle directa o delimitación geográfica)
+  const resolveTrelewNeighborhood = (roadName: string | undefined, rawName: string | undefined, lat: number, lng: number): string | null => {
+    // 1. Coincidencia exacta por nombre de calle conocida en Trelew
+    if (roadName) {
+      const cleanRoad = roadName.toLowerCase().trim();
+      for (const [key, nName] of Object.entries(TRELEW_STREET_MAP)) {
+        if (cleanRoad.includes(key)) {
+          return nName;
+        }
+      }
+    }
+
+    // 2. Delimitación geográfica por coordenadas
+    // Zona B° Padre Juan / Codepro (Norte de 25 de Mayo, Conesa, Cutillo, Winter)
+    if (lat >= -43.247 && lat <= -43.235 && lng >= -65.305 && lng <= -65.285) {
       return 'Padre Juan / Codepro';
     }
-    // 2. B° Centro (Plaza Independencia, San Martín, 25 de Mayo, Fontana, Belgrano)
-    if (lat >= -43.254 && lat <= -43.246 && lng >= -65.313 && lng <= -65.300) {
+    // B° Centro (Plaza Independencia y radio comercial)
+    if (lat >= -43.258 && lat <= -43.248 && lng >= -65.316 && lng <= -65.302) {
       return 'Centro';
     }
-    // 3. Laguna Chiquichano / Alberdi
-    if (lat >= -43.256 && lat <= -43.247 && lng >= -65.300 && lng <= -65.290) {
+    // Laguna Chiquichano (Parque)
+    if (lat >= -43.253 && lat <= -43.247 && lng >= -65.302 && lng <= -65.292) {
       return 'Laguna Chiquichano';
     }
-    // 4. B° Los Aromos
-    if (lat >= -43.260 && lat <= -43.252 && lng >= -65.322 && lng <= -65.310) {
+    // B° Los Aromos
+    if (lat >= -43.265 && lat <= -43.254 && lng >= -65.335 && lng <= -65.318) {
       return 'Los Aromos';
     }
-    // 5. B° Santa Catalina / 290 Viviendas
-    if (lat >= -43.239 && lat <= -43.228 && lng >= -65.320 && lng <= -65.300) {
+    // B° Santa Catalina / 290 Viviendas
+    if (lat >= -43.238 && lat <= -43.225 && lng >= -65.322 && lng <= -65.300) {
       return 'Santa Catalina';
     }
-    // 6. B° Tiro Federal
-    if (lat >= -43.242 && lat <= -43.230 && lng >= -65.300 && lng <= -65.282) {
+    // B° Tiro Federal
+    if (lat >= -43.242 && lat <= -43.225 && lng >= -65.300 && lng <= -65.278) {
       return 'Tiro Federal';
     }
-    // 7. B° Don Bosco
-    if (lat >= -43.250 && lat <= -43.241 && lng >= -65.324 && lng <= -65.310) {
+    // B° Don Bosco
+    if (lat >= -43.252 && lat <= -43.242 && lng >= -65.326 && lng <= -65.312) {
       return 'Don Bosco';
     }
-    // 8. B° San Martín / Corradi
+    // B° San Martín / Corradi
     if (lat >= -43.265 && lat <= -43.252 && lng >= -65.335 && lng <= -65.318) {
       return 'San Martín';
     }
-    // 9. B° Etchepare / San José
+    // B° Etchepare / San José
     if (lat >= -43.272 && lat <= -43.258 && lng >= -65.318 && lng <= -65.295) {
       return 'Etchepare';
     }
-    // 10. B° Planta de Gas
+    // B° Planta de Gas
     if (lat >= -43.254 && lat <= -43.240 && lng >= -65.288 && lng <= -65.268) {
       return 'Planta de Gas';
     }
-    // 11. B° INTA / Menfa / Amaya
+    // B° INTA / Menfa / Amaya
     if (lat >= -43.275 && lat <= -43.255 && lng >= -65.348 && lng <= -65.328) {
       return 'INTA / Menfa';
     }
 
-    // Si viene un barrio de OpenStreetMap, verificar que no sea una designación catastral técnica
+    // Si viene un barrio de OpenStreetMap que no sea un código catastral
     if (rawName) {
       const isCadastral = /chacra|parcela|lote|secci[oó]n|fracci[oó]n|manzana|radio\s*\d+/i.test(rawName);
       if (!isCadastral) {
@@ -121,7 +170,7 @@ export default function LocationPicker({
       const road = addr.road || addr.pedestrian || addr.street || addr.footway || addr.path || addr.avenue || '';
       const houseNumber = addr.house_number || '';
       const rawNeighborhood = addr.neighbourhood || addr.suburb || addr.residential || addr.city_district || '';
-      const neighborhood = resolveTrelewNeighborhood(rawNeighborhood, lat, lng);
+      const neighborhood = resolveTrelewNeighborhood(road, rawNeighborhood, lat, lng);
       const city = addr.city || addr.town || addr.village || 'Trelew';
 
       let formatted = '';
@@ -339,7 +388,7 @@ export default function LocationPicker({
           <button
             key={zone.name}
             type="button"
-            onClick={() => setLocationDirect(zone.lat, zone.lng, zone.name)}
+            onClick={() => setLocationDirect(zone.lat, zone.lng, zone.address || zone.name)}
             className="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-zinc-100 dark:bg-zinc-800 hover:bg-orange-100 dark:hover:bg-orange-950/50 hover:text-orange-600 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700 transition-colors cursor-pointer"
           >
             {zone.name}
