@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import PhotoUploader from '@/components/forms/PhotoUploader';
 import LocationPicker from '@/components/map/LocationPicker';
+import AddressAutocomplete from '@/components/forms/AddressAutocomplete';
 import { lostReportSchema, LostReportInput } from '@/lib/validations/lost-report.schema';
 import { PetSpecies, PetSize, PetGender } from '@/types';
 import { PlusCircle, ShieldAlert, Sparkles, CheckCircle2, ArrowRight, Clock } from 'lucide-react';
@@ -264,18 +265,18 @@ export default function PublicarPerdidaPage() {
           </h2>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-bold text-zinc-700 dark:text-zinc-300 mb-1">
-                Barrio o Dirección aproximada <span className="text-rose-500">*</span>
-              </label>
-              <input
-                type="text"
-                placeholder="Ej: B° Los Aromos, cerca de la plaza"
-                value={formData.approximate_address || ''}
-                onChange={(e) => setFormData((prev) => ({ ...prev, approximate_address: e.target.value }))}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
-              />
-            </div>
+            <AddressAutocomplete
+              value={formData.approximate_address || ''}
+              onChange={(address, coords) => {
+                setFormData((prev) => ({
+                  ...prev,
+                  approximate_address: address,
+                  ...(coords ? { latitude: coords.lat, longitude: coords.lng } : {}),
+                }));
+              }}
+              label="Barrio o Dirección aproximada"
+              placeholder="Ej: B° Los Aromos, cerca de la plaza"
+            />
 
             <div>
               <div className="flex items-center justify-between mb-1">
