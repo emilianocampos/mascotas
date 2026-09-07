@@ -78,14 +78,9 @@ export default function AddressAutocomplete({
 
   return (
     <div ref={wrapperRef} className="relative space-y-1">
-      <div className="flex items-center justify-between">
-        <label className="block text-xs font-bold text-zinc-700 dark:text-zinc-300">
-          {label} {required && <span className="text-rose-500">*</span>}
-        </label>
-        <span className="text-[10px] text-zinc-400 font-mono">
-          🇦🇷 Búsqueda Georef
-        </span>
-      </div>
+      <label className="block text-xs font-bold text-zinc-700 dark:text-zinc-300">
+        {label} {required && <span className="text-rose-500">*</span>}
+      </label>
 
       <div className="relative">
         <input
@@ -111,11 +106,11 @@ export default function AddressAutocomplete({
         </div>
       </div>
 
-      {/* Dropdown de sugerencias Georef */}
+      {/* Dropdown de sugerencias */}
       {isOpen && suggestions.length > 0 && (
         <div className="absolute left-0 right-0 z-50 mt-1 bg-white dark:bg-zinc-900 rounded-xl shadow-xl border border-zinc-200 dark:border-zinc-800 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
           <div className="px-3 py-1.5 bg-zinc-100 dark:bg-zinc-800/60 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between text-[10px] text-zinc-500 font-semibold">
-            <span>Calles oficiales (Georef Chubut)</span>
+            <span>Sugerencias de calles</span>
             <span>Elegí una para centrar</span>
           </div>
 
