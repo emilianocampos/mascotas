@@ -94,7 +94,6 @@ export default function LocationPicker({
       onLocationChangeRef.current(lat, lng, addr.street, addr.houseNumber);
     }
   };
-  };
 
   useEffect(() => {
     let isMounted = true;
