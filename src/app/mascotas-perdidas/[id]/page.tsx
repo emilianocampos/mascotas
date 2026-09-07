@@ -370,6 +370,46 @@ export default async function DetalleMascotaPage({ params }: Props) {
         </div>
       </div>
 
+      {/* Barra Flotante Inferior de Contacto para Celulares */}
+      {!isReunited && (
+        <div className="md:hidden fixed bottom-16 left-0 right-0 p-3 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md border-t border-zinc-200 dark:border-zinc-800 z-40 shadow-2xl flex items-center gap-2">
+          {isLost ? (
+            <>
+              <Link
+                href="/publicar/avistamiento"
+                className="flex-1 py-3 rounded-xl bg-amber-500 text-white font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-md active:scale-95 transition-transform"
+              >
+                <Eye className="w-4 h-4" />
+                Vi a {petName}
+              </Link>
+              {report.profile?.phone && (
+                <a
+                  href={`https://wa.me/${report.profile.phone.replace(/[^0-9]/g, '')}?text=Hola! Te escribo por ${petName} desde Mascotas Trelew`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 py-3 rounded-xl bg-emerald-600 text-white font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-md active:scale-95 transition-transform"
+                >
+                  <MessageCircle className="w-4 h-4" />
+                  WhatsApp
+                </a>
+              )}
+            </>
+          ) : (
+            report.profile?.phone && (
+              <a
+                href={`https://wa.me/${report.profile.phone.replace(/[^0-9]/g, '')}?text=Hola! Vi la mascota encontrada en ${report.approximate_address}. Creo que es mía.`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full py-3 rounded-xl bg-emerald-600 text-white font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-md active:scale-95 transition-transform"
+              >
+                <MessageCircle className="w-4 h-4" />
+                ¡Es mi mascota! Contactar por WhatsApp
+              </a>
+            )
+          )}
+        </div>
+      )}
+
     </div>
   );
 }

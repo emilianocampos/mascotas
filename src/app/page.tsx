@@ -48,54 +48,54 @@ export default async function HomePage() {
           </p>
 
           {/* 4 BOTONES DE ACCIÓN PRINCIPALES */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 pt-6 max-w-4xl mx-auto">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3.5 pt-4 sm:pt-6 max-w-4xl mx-auto">
             
             {/* 1. PERDÍ UNA MASCOTA */}
             <Link
               href="/publicar/perdida"
-              className="group relative flex flex-col items-center justify-center p-5 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white shadow-lg shadow-rose-600/25 hover:shadow-rose-600/40 transform active:scale-95 transition-all text-center"
+              className="group relative flex flex-col items-center justify-center p-3.5 sm:p-5 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white shadow-lg shadow-rose-600/25 hover:shadow-rose-600/40 transform active:scale-95 transition-all text-center"
             >
-              <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center mb-2.5 group-hover:scale-110 transition-transform">
-                <PlusCircle className="w-6 h-6" />
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-white/20 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
+                <PlusCircle className="w-5 h-5 sm:w-6 sm:h-6" />
               </div>
-              <span className="text-base font-extrabold uppercase tracking-tight">Perdí mi mascota</span>
-              <span className="text-xs text-rose-100 mt-0.5">Crear alerta inmediata</span>
+              <span className="text-xs sm:text-base font-extrabold uppercase tracking-tight">Perdí mi mascota</span>
+              <span className="text-[10px] sm:text-xs text-rose-100 mt-0.5">Crear alerta</span>
             </Link>
 
             {/* 2. ENCONTRÉ UNA MASCOTA */}
             <Link
               href="/publicar/encontrada"
-              className="group relative flex flex-col items-center justify-center p-5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-600/25 hover:shadow-emerald-600/40 transform active:scale-95 transition-all text-center"
+              className="group relative flex flex-col items-center justify-center p-3.5 sm:p-5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-600/25 hover:shadow-emerald-600/40 transform active:scale-95 transition-all text-center"
             >
-              <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center mb-2.5 group-hover:scale-110 transition-transform">
-                <HeartHandshake className="w-6 h-6" />
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-white/20 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
+                <HeartHandshake className="w-5 h-5 sm:w-6 sm:h-6" />
               </div>
-              <span className="text-base font-extrabold uppercase tracking-tight">Encontré una</span>
-              <span className="text-xs text-emerald-100 mt-0.5">Buscar a su dueño</span>
+              <span className="text-xs sm:text-base font-extrabold uppercase tracking-tight">Encontré una</span>
+              <span className="text-[10px] sm:text-xs text-emerald-100 mt-0.5">Buscar dueño</span>
             </Link>
 
             {/* 3. VI UNA MASCOTA */}
             <Link
               href="/publicar/avistamiento"
-              className="group relative flex flex-col items-center justify-center p-5 rounded-2xl bg-amber-500 hover:bg-amber-600 text-white shadow-lg shadow-amber-500/25 hover:shadow-amber-500/40 transform active:scale-95 transition-all text-center"
+              className="group relative flex flex-col items-center justify-center p-3.5 sm:p-5 rounded-2xl bg-amber-500 hover:bg-amber-600 text-white shadow-lg shadow-amber-500/25 hover:shadow-amber-500/40 transform active:scale-95 transition-all text-center"
             >
-              <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center mb-2.5 group-hover:scale-110 transition-transform">
-                <Eye className="w-6 h-6" />
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-white/20 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
+                <Eye className="w-5 h-5 sm:w-6 sm:h-6" />
               </div>
-              <span className="text-base font-extrabold uppercase tracking-tight">Vi una mascota</span>
-              <span className="text-xs text-amber-100 mt-0.5">Reportar avistamiento</span>
+              <span className="text-xs sm:text-base font-extrabold uppercase tracking-tight">Vi una mascota</span>
+              <span className="text-[10px] sm:text-xs text-amber-100 mt-0.5">Reportar dato</span>
             </Link>
 
             {/* 4. EXPLORAR MAPA */}
             <Link
               href="/mapa"
-              className="group relative flex flex-col items-center justify-center p-5 rounded-2xl bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-white shadow-lg shadow-zinc-900/20 transform active:scale-95 transition-all text-center border border-zinc-700"
+              className="group relative flex flex-col items-center justify-center p-3.5 sm:p-5 rounded-2xl bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-white shadow-lg shadow-zinc-900/20 transform active:scale-95 transition-all text-center border border-zinc-700"
             >
-              <div className="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center mb-2.5 group-hover:scale-110 transition-transform">
-                <Compass className="w-6 h-6 text-orange-400" />
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-white/10 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
+                <Compass className="w-5 h-5 sm:w-6 sm:h-6 text-orange-400" />
               </div>
-              <span className="text-base font-extrabold uppercase tracking-tight">Explorar Mapa</span>
-              <span className="text-xs text-zinc-300 mt-0.5">Ver pines en vivo</span>
+              <span className="text-xs sm:text-base font-extrabold uppercase tracking-tight">Explorar Mapa</span>
+              <span className="text-[10px] sm:text-xs text-zinc-300 mt-0.5">Ver en vivo</span>
             </Link>
 
           </div>

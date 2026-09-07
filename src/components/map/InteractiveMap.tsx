@@ -217,10 +217,10 @@ export default function InteractiveMap({
       <div ref={mapContainerRef} className="w-full h-full z-0" />
 
       {/* Barra de Filtros Flotante */}
-      <div className="absolute top-3 left-3 z-10 flex flex-wrap items-center gap-1.5 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-md p-1.5 rounded-xl shadow-md border border-zinc-200 dark:border-zinc-800">
+      <div className="absolute top-3 left-3 right-3 sm:right-auto z-10 flex items-center gap-1.5 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md p-1.5 rounded-xl shadow-md border border-zinc-200 dark:border-zinc-800 overflow-x-auto max-w-[calc(100%-24px)] no-scrollbar">
         <button
           onClick={() => setActiveFilter('all')}
-          className={`px-3 py-1 rounded-lg text-xs font-bold transition-colors ${
+          className={`px-3 py-1 rounded-lg text-xs font-bold whitespace-nowrap shrink-0 transition-colors ${
             activeFilter === 'all'
               ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900'
               : 'text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800'
@@ -230,7 +230,7 @@ export default function InteractiveMap({
         </button>
         <button
           onClick={() => setActiveFilter('lost')}
-          className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold transition-colors ${
+          className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold whitespace-nowrap shrink-0 transition-colors ${
             activeFilter === 'lost'
               ? 'bg-rose-600 text-white'
               : 'text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40'
@@ -241,7 +241,7 @@ export default function InteractiveMap({
         </button>
         <button
           onClick={() => setActiveFilter('found')}
-          className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold transition-colors ${
+          className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold whitespace-nowrap shrink-0 transition-colors ${
             activeFilter === 'found'
               ? 'bg-emerald-600 text-white'
               : 'text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40'
@@ -252,7 +252,7 @@ export default function InteractiveMap({
         </button>
         <button
           onClick={() => setActiveFilter('sighting')}
-          className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold transition-colors ${
+          className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold whitespace-nowrap shrink-0 transition-colors ${
             activeFilter === 'sighting'
               ? 'bg-amber-600 text-white'
               : 'text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40'
