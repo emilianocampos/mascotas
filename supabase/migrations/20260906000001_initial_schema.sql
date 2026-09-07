@@ -524,19 +524,19 @@ CREATE POLICY "Public Read Cities" ON cities FOR SELECT USING (true);
 CREATE POLICY "Public Read Profiles" ON profiles FOR SELECT USING (true);
 CREATE POLICY "Owner Update Profile" ON profiles FOR UPDATE USING (auth.uid() = id) WITH CHECK (auth.uid() = id);
 
--- Mascotas: Lectura pública, Inserción por usuarios autenticados
+-- Mascotas: Lectura pública, Inserción pública sin fricción
 CREATE POLICY "Public Read Pets" ON pets FOR SELECT USING (true);
-CREATE POLICY "Authenticated Insert Pets" ON pets FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
+CREATE POLICY "Public Insert Pets" ON pets FOR INSERT WITH CHECK (true);
 CREATE POLICY "Owner Update Pets" ON pets FOR UPDATE USING (auth.uid() = owner_id);
 
 -- Lost Reports:
 -- 1. Lectura pública de reportes activos o reunidos (oculta UNDER_REVIEW / REMOVED)
 CREATE POLICY "Public Read Active Lost Reports" ON lost_reports FOR SELECT 
-USING (status IN ('ACTIVE', 'FOUND', 'REUNITED') OR auth.uid() = user_id);
+USING (status IN ('ACTIVE', 'FOUND', 'REUNITED') OR (auth.uid() IS NOT NULL AND auth.uid() = user_id));
 
--- 2. Creación por usuario autenticado
-CREATE POLICY "User Create Lost Report" ON lost_reports FOR INSERT 
-WITH CHECK (auth.uid() = user_id);
+-- 2. Creación pública sin fricción
+CREATE POLICY "Public Create Lost Report" ON lost_reports FOR INSERT 
+WITH CHECK (true);
 
 -- 3. Edición / Cierre por el dueño
 CREATE POLICY "Owner Update Lost Report" ON lost_reports FOR UPDATE 
@@ -544,17 +544,17 @@ USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
 
 -- Found Reports:
 CREATE POLICY "Public Read Active Found Reports" ON found_reports FOR SELECT 
-USING (status IN ('ACTIVE', 'FOUND', 'REUNITED') OR auth.uid() = finder_id);
+USING (status IN ('ACTIVE', 'FOUND', 'REUNITED') OR (auth.uid() IS NOT NULL AND auth.uid() = finder_id));
 
-CREATE POLICY "User Create Found Report" ON found_reports FOR INSERT 
-WITH CHECK (auth.uid() = finder_id);
+CREATE POLICY "Public Create Found Report" ON found_reports FOR INSERT 
+WITH CHECK (true);
 
 CREATE POLICY "Finder Update Found Report" ON found_reports FOR UPDATE 
 USING (auth.uid() = finder_id) WITH CHECK (auth.uid() = finder_id);
 
 -- Sightings:
 CREATE POLICY "Public Read Sightings" ON sightings FOR SELECT USING (true);
-CREATE POLICY "Authenticated Insert Sightings" ON sightings FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
+CREATE POLICY "Public Insert Sightings" ON sightings FOR INSERT WITH CHECK (true);
 
 -- Notificaciones: Solo el destinatario
 CREATE POLICY "User Access Own Notifications" ON notifications FOR ALL 

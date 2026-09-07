@@ -294,7 +294,7 @@ export async function createLostReportInDb(input: LostReportInput): Promise<stri
     .from('lost_reports')
     .insert({
       pet_id: petData.id,
-      user_id: userId || '00000000-0000-0000-0000-000000000000',
+      user_id: userId || null,
       last_seen_date: input.last_seen_date,
       last_seen_location: `POINT(${input.longitude} ${input.latitude})`,
       approximate_address: input.approximate_address,
@@ -331,6 +331,7 @@ export async function createFoundReportInDb(input: FoundReportInput): Promise<st
       secondary_color: input.secondary_color || null,
       distinctive_features: input.distinctive_features || null,
       photos: input.photos,
+      owner_id: userId || null,
     })
     .select('id')
     .single();
@@ -343,7 +344,7 @@ export async function createFoundReportInDb(input: FoundReportInput): Promise<st
     .from('found_reports')
     .insert({
       pet_id: petData.id,
-      finder_id: userId || '00000000-0000-0000-0000-000000000000',
+      finder_id: userId || null,
       found_date: input.found_date,
       found_location: `POINT(${input.longitude} ${input.latitude})`,
       approximate_address: input.approximate_address,
