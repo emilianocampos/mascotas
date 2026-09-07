@@ -13,10 +13,10 @@ interface LocationPickerProps {
 
 const POPULAR_TRELEW_ZONES = [
   { name: 'Centro / Plaza', address: 'San Martín y Mitre', lat: -43.2529, lng: -65.3094 },
-  { name: 'B° Padre Juan (Conesa)', address: 'Conesa y Cutillo', lat: -43.2435, lng: -65.2965 },
+  { name: 'Padre Juan / Conesa', address: 'Conesa y Cutillo', lat: -43.2435, lng: -65.2965 },
   { name: 'Laguna Chiquichano', address: 'Av. Lewis Jones y Alem', lat: -43.2492, lng: -65.2965 },
-  { name: 'B° Los Aromos', address: 'Soberanía Nacional y Chile', lat: -43.2615, lng: -65.3260 },
-  { name: 'Terminal de Ómnibus', address: 'Urquiza y Colombia', lat: -43.2562, lng: -65.3040 },
+  { name: 'Los Aromos', address: 'Soberanía Nacional y Chile', lat: -43.2615, lng: -65.3260 },
+  { name: 'Terminal', address: 'Urquiza y Colombia', lat: -43.2562, lng: -65.3040 },
 ];
 
 export default function LocationPicker({
@@ -63,15 +63,16 @@ export default function LocationPicker({
       const road = addr.road || addr.pedestrian || addr.street || addr.footway || addr.path || addr.avenue || '';
       const houseNumber = addr.house_number || '';
 
-      // Si detecta la calle, poner solo calle y número
+      // Si detecta la calle, poner ÚNICAMENTE calle y número (limpiando cualquier sufijo de barrio)
       if (road) {
-        return houseNumber ? `${road} ${houseNumber}` : road;
+        const cleanRoad = road.split(',')[0].replace(/\s+/g, ' ').trim();
+        return houseNumber ? `${cleanRoad} ${houseNumber}` : cleanRoad;
       }
 
       if (data.display_name) {
         const firstPart = data.display_name
           .split(',')
-          .filter((p: string) => !/chacra|parcela|lote|radio/i.test(p))[0]
+          .filter((p: string) => !/chacra|parcela|lote|radio|barrio|b°|bº/i.test(p))[0]
           ?.trim();
         return firstPart || null;
       }

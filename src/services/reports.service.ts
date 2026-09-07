@@ -320,6 +320,10 @@ export async function createLostReportInDb(input: LostReportInput): Promise<stri
     throw new Error(`Error al guardar mascota: ${petError?.message}`);
   }
 
+  const formattedAddress = input.neighborhood?.trim()
+    ? `${input.approximate_address.trim()}, B° ${input.neighborhood.trim().replace(/^b[°ºa-z.]*\s*/i, '')}`
+    : input.approximate_address;
+
   // 2. Insertar reporte con coordenadas PostGIS
   const { data: reportData, error: reportError } = await supabase
     .from('lost_reports')
@@ -328,7 +332,7 @@ export async function createLostReportInDb(input: LostReportInput): Promise<stri
       user_id: userId || null,
       last_seen_date: input.last_seen_date,
       last_seen_location: `POINT(${input.longitude} ${input.latitude})`,
-      approximate_address: input.approximate_address,
+      approximate_address: formattedAddress,
       description: input.description,
       contact_phone_public: input.contact_phone_public,
       status: 'ACTIVE',
@@ -371,6 +375,10 @@ export async function createFoundReportInDb(input: FoundReportInput): Promise<st
     throw new Error(`Error al guardar mascota: ${petError?.message}`);
   }
 
+  const formattedAddress = input.neighborhood?.trim()
+    ? `${input.approximate_address.trim()}, B° ${input.neighborhood.trim().replace(/^b[°ºa-z.]*\s*/i, '')}`
+    : input.approximate_address;
+
   const { data: reportData, error: reportError } = await supabase
     .from('found_reports')
     .insert({
@@ -378,7 +386,7 @@ export async function createFoundReportInDb(input: FoundReportInput): Promise<st
       finder_id: userId || null,
       found_date: input.found_date,
       found_location: `POINT(${input.longitude} ${input.latitude})`,
-      approximate_address: input.approximate_address,
+      approximate_address: formattedAddress,
       is_holding: input.is_holding,
       description: input.description,
       status: 'ACTIVE',

@@ -9,6 +9,7 @@ export const sightingSchema = z.object({
   approximate_address: z.string({
     message: 'Por favor indicá la esquina o calle donde viste a la mascota',
   }).min(3, 'Por favor indicá la esquina o calle donde viste a la mascota').max(150),
+  neighborhood: z.string().max(80).optional().nullable(),
   sighting_date: z.string({
     message: 'Por favor indicá cuándo la viste',
   }).min(1, 'Por favor indicá cuándo la viste'),

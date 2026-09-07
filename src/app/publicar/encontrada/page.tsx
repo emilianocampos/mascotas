@@ -251,19 +251,34 @@ export default function PublicarEncontradaPage() {
             2. ¿Dónde lo encontraste?
           </h2>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <AddressAutocomplete
-              value={formData.approximate_address || ''}
-              onChange={(address, coords) => {
-                setFormData((prev) => ({
-                  ...prev,
-                  approximate_address: address,
-                  ...(coords ? { latitude: coords.lat, longitude: coords.lng } : {}),
-                }));
-              }}
-              label="Esquina, Calle o Barrio"
-              placeholder="Ej: San Martín 450 o Conesa"
-            />
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <AddressAutocomplete
+                value={formData.approximate_address || ''}
+                onChange={(address, coords) => {
+                  setFormData((prev) => ({
+                    ...prev,
+                    approximate_address: address,
+                    ...(coords ? { latitude: coords.lat, longitude: coords.lng } : {}),
+                  }));
+                }}
+                label="Dirección o Calle"
+                placeholder="Ej: San Martín 450 o Conesa"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-zinc-700 dark:text-zinc-300 mb-1">
+                Barrio <span className="text-zinc-400 font-normal">(Opcional)</span>
+              </label>
+              <input
+                type="text"
+                placeholder="Ej: Padre Juan, Codepro, Centro..."
+                value={formData.neighborhood || ''}
+                onChange={(e) => setFormData((prev) => ({ ...prev, neighborhood: e.target.value }))}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              />
+            </div>
 
             <div>
               <div className="flex items-center justify-between mb-1">
@@ -281,7 +296,7 @@ export default function PublicarEncontradaPage() {
                   className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 px-2 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-800/60 transition-colors cursor-pointer"
                 >
                   <Clock className="w-3 h-3" />
-                  Poner fecha y hora actual
+                  Poner actual
                 </button>
               </div>
               <input

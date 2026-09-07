@@ -28,11 +28,15 @@ export default function PublicarAvistamientoPage() {
     e.preventDefault();
     setFormErrors({});
 
+    const formattedAddress = formData.neighborhood?.trim()
+      ? `${formData.approximate_address?.trim() || ''}, B° ${formData.neighborhood.trim().replace(/^b[°ºa-z.]*\s*/i, '')}`
+      : (formData.approximate_address || '');
+
     const payload: SightingInput = {
       lost_report_id: formData.lost_report_id || '11111111-1111-1111-1111-111111111111',
       latitude: formData.latitude || -43.24895,
       longitude: formData.longitude || -65.30505,
-      approximate_address: formData.approximate_address || '',
+      approximate_address: formattedAddress,
       sighting_date: formData.sighting_date || new Date().toISOString(),
       photo_url: formData.photos?.[0] || null,
       description: formData.description || '',
@@ -125,19 +129,34 @@ export default function PublicarAvistamientoPage() {
             ¿Dónde y hacia dónde iba?
           </h2>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <AddressAutocomplete
-              value={formData.approximate_address || ''}
-              onChange={(address, coords) => {
-                setFormData((prev) => ({
-                  ...prev,
-                  approximate_address: address,
-                  ...(coords ? { latitude: coords.lat, longitude: coords.lng } : {}),
-                }));
-              }}
-              label="Lugar / Esquina"
-              placeholder="Ej: Calle 25 de Mayo y Pellegrini"
-            />
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <AddressAutocomplete
+                value={formData.approximate_address || ''}
+                onChange={(address, coords) => {
+                  setFormData((prev) => ({
+                    ...prev,
+                    approximate_address: address,
+                    ...(coords ? { latitude: coords.lat, longitude: coords.lng } : {}),
+                  }));
+                }}
+                label="Lugar o Esquina"
+                placeholder="Ej: Calle 25 de Mayo y Pellegrini"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-zinc-700 dark:text-zinc-300 mb-1">
+                Barrio <span className="text-zinc-400 font-normal">(Opcional)</span>
+              </label>
+              <input
+                type="text"
+                placeholder="Ej: Padre Juan, Codepro, Centro..."
+                value={formData.neighborhood || ''}
+                onChange={(e) => setFormData((prev) => ({ ...prev, neighborhood: e.target.value }))}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-amber-500"
+              />
+            </div>
 
             <div>
               <div className="flex items-center justify-between mb-1">
@@ -155,7 +174,7 @@ export default function PublicarAvistamientoPage() {
                   className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-600 dark:text-amber-400 hover:text-amber-700 bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 px-2 py-0.5 rounded-md border border-amber-200 dark:border-amber-800/60 transition-colors cursor-pointer"
                 >
                   <Clock className="w-3 h-3" />
-                  Poner fecha y hora actual
+                  Poner actual
                 </button>
               </div>
               <input

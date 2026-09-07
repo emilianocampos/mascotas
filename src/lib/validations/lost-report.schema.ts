@@ -24,8 +24,9 @@ export const lostReportSchema = z.object({
   latitude: z.number().min(-90).max(90),
   longitude: z.number().min(-180).max(180),
   approximate_address: z.string({
-    message: 'Por favor indicá el barrio, plaza o calle donde se extravió',
-  }).min(3, 'Por favor indicá el barrio, plaza o calle donde se extravió').max(150),
+    message: 'Por favor indicá la calle o esquina donde se extravió',
+  }).min(3, 'Por favor indicá la calle o esquina donde se extravió').max(150),
+  neighborhood: z.string().max(80).optional().nullable(),
   last_seen_date: z.string({
     message: 'Por favor indicá la fecha y hora aproximada de extravío',
   }).min(1, 'Por favor indicá la fecha y hora aproximada de extravío'),

@@ -21,8 +21,9 @@ export const foundReportSchema = z.object({
   latitude: z.number().min(-90).max(90),
   longitude: z.number().min(-180).max(180),
   approximate_address: z.string({
-    message: 'Por favor indicá la calle, esquina o barrio donde lo viste',
-  }).min(3, 'Por favor indicá la calle, esquina o barrio donde lo viste').max(150),
+    message: 'Por favor indicá la calle o esquina donde lo viste',
+  }).min(3, 'Por favor indicá la calle o esquina donde lo viste').max(150),
+  neighborhood: z.string().max(80).optional().nullable(),
   found_date: z.string({
     message: 'Por favor indicá la fecha y hora aproximada del hallazgo',
   }).min(1, 'Por favor indicá la fecha y hora aproximada del hallazgo'),

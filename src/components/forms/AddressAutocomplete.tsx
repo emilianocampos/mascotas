@@ -16,7 +16,7 @@ export default function AddressAutocomplete({
   value,
   onChange,
   placeholder = 'Ej: San Martín 450 o Conesa',
-  label = 'Esquina, Calle o Barrio',
+  label = 'Calle y Número o Esquina',
   required = true,
 }: AddressAutocompleteProps) {
   const [inputValue, setInputValue] = useState(value || '');
@@ -60,14 +60,19 @@ export default function AddressAutocomplete({
   }, []);
 
   const handleSelect = (s: GeorefAddressSuggestion) => {
-    const formatted = s.street ? (s.number ? `${s.street} ${s.number}` : s.street) : s.name;
-    setInputValue(formatted);
+    const raw = s.street ? (s.number ? `${s.street} ${s.number}` : s.street) : s.name;
+    const cleanStreet = raw
+      .split('(')[0]
+      .split(',')[0]
+      .replace(/\s+/g, ' ')
+      .trim();
+    setInputValue(cleanStreet);
     setIsOpen(false);
 
     if (s.latitude && s.longitude) {
-      onChange(formatted, { lat: s.latitude, lng: s.longitude });
+      onChange(cleanStreet, { lat: s.latitude, lng: s.longitude });
     } else {
-      onChange(formatted);
+      onChange(cleanStreet);
     }
   };
 
