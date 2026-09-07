@@ -4,7 +4,6 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import PhotoUploader from '@/components/forms/PhotoUploader';
 import LocationPicker from '@/components/map/LocationPicker';
-import AddressAutocomplete from '@/components/forms/AddressAutocomplete';
 import { foundReportSchema, FoundReportInput } from '@/lib/validations/found-report.schema';
 import { PetSpecies, PetSize, PetGender } from '@/types';
 import { HeartHandshake, CheckCircle2, ArrowRight, Clock } from 'lucide-react';
@@ -251,19 +250,37 @@ export default function PublicarEncontradaPage() {
             2. ¿Dónde lo encontraste?
           </h2>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div>
-              <AddressAutocomplete
-                value={formData.approximate_address || ''}
-                onChange={(address, coords) => {
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-3.5">
+            <div className="sm:col-span-2">
+              <label className="block text-xs font-bold text-zinc-700 dark:text-zinc-300 mb-1">
+                Calle o Esquina <span className="text-rose-500">*</span>
+              </label>
+              <input
+                type="text"
+                placeholder="Ej: San Martín o Conesa y Cutillo"
+                value={formData.street_name || formData.approximate_address || ''}
+                onChange={(e) => {
+                  const val = e.target.value;
                   setFormData((prev) => ({
                     ...prev,
-                    approximate_address: address,
-                    ...(coords ? { latitude: coords.lat, longitude: coords.lng } : {}),
+                    street_name: val,
+                    approximate_address: val,
                   }));
                 }}
-                label="Dirección o Calle"
-                placeholder="Ej: San Martín 450 o Conesa"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-zinc-700 dark:text-zinc-300 mb-1">
+                N° de calle <span className="text-zinc-400 font-normal">(Opcional)</span>
+              </label>
+              <input
+                type="text"
+                placeholder="Ej: 450 o s/n"
+                value={formData.street_number || ''}
+                onChange={(e) => setFormData((prev) => ({ ...prev, street_number: e.target.value }))}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500"
               />
             </div>
 
@@ -273,53 +290,54 @@ export default function PublicarEncontradaPage() {
               </label>
               <input
                 type="text"
-                placeholder="Ej: Padre Juan, Codepro, Centro..."
+                placeholder="Ej: Padre Juan, Centro..."
                 value={formData.neighborhood || ''}
                 onChange={(e) => setFormData((prev) => ({ ...prev, neighborhood: e.target.value }))}
                 className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500"
               />
             </div>
+          </div>
 
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="block text-xs font-bold text-zinc-700 dark:text-zinc-300">
-                  Fecha y hora del hallazgo <span className="text-rose-500">*</span>
-                </label>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const now = new Date();
-                    const pad = (n: number) => n.toString().padStart(2, '0');
-                    const localIso = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
-                    setFormData((prev) => ({ ...prev, found_date: localIso }));
-                  }}
-                  className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 px-2 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-800/60 transition-colors cursor-pointer"
-                >
-                  <Clock className="w-3 h-3" />
-                  Poner actual
-                </button>
-              </div>
-              <input
-                type="datetime-local"
-                value={formData.found_date || ''}
-                onChange={(e) => setFormData((prev) => ({ ...prev, found_date: e.target.value }))}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-              />
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-xs font-bold text-zinc-700 dark:text-zinc-300">
+                Fecha y hora del hallazgo <span className="text-rose-500">*</span>
+              </label>
+              <button
+                type="button"
+                onClick={() => {
+                  const now = new Date();
+                  const pad = (n: number) => n.toString().padStart(2, '0');
+                  const localIso = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
+                  setFormData((prev) => ({ ...prev, found_date: localIso }));
+                }}
+                className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 px-2 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-800/60 transition-colors cursor-pointer"
+              >
+                <Clock className="w-3 h-3" />
+                Poner actual
+              </button>
             </div>
+            <input
+              type="datetime-local"
+              value={formData.found_date || ''}
+              onChange={(e) => setFormData((prev) => ({ ...prev, found_date: e.target.value }))}
+              className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            />
           </div>
 
           <LocationPicker
             initialLat={formData.latitude}
             initialLng={formData.longitude}
-            onLocationChange={(lat, lng, address) => {
+            onLocationChange={(lat, lng, street, houseNumber) => {
               setFormData((prev) => ({
                 ...prev,
                 latitude: lat,
                 longitude: lng,
-                ...(address ? { approximate_address: address } : {}),
+                ...(street ? { street_name: street, approximate_address: street } : {}),
+                ...(houseNumber ? { street_number: houseNumber } : {}),
               }));
             }}
-            label="Marcar lugar del hallazgo"
+            label="Marcar lugar del hallazgo en el mapa"
           />
         </div>
 

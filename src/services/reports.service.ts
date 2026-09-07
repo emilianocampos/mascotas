@@ -320,9 +320,17 @@ export async function createLostReportInDb(input: LostReportInput): Promise<stri
     throw new Error(`Error al guardar mascota: ${petError?.message}`);
   }
 
-  const formattedAddress = input.neighborhood?.trim()
-    ? `${input.approximate_address.trim()}, B° ${input.neighborhood.trim().replace(/^b[°ºa-z.]*\s*/i, '')}`
-    : input.approximate_address;
+  const street = (input.street_name || input.approximate_address || '').trim();
+  const num = (input.street_number || '').trim();
+  const barrio = (input.neighborhood || '').trim();
+  
+  let formattedAddress = street;
+  if (num && !street.includes(num)) {
+    formattedAddress = `${formattedAddress} ${num}`;
+  }
+  if (barrio) {
+    formattedAddress = `${formattedAddress}, B° ${barrio.replace(/^b[°ºa-z.]*\s*/i, '')}`;
+  }
 
   // 2. Insertar reporte con coordenadas PostGIS
   const { data: reportData, error: reportError } = await supabase
@@ -375,9 +383,17 @@ export async function createFoundReportInDb(input: FoundReportInput): Promise<st
     throw new Error(`Error al guardar mascota: ${petError?.message}`);
   }
 
-  const formattedAddress = input.neighborhood?.trim()
-    ? `${input.approximate_address.trim()}, B° ${input.neighborhood.trim().replace(/^b[°ºa-z.]*\s*/i, '')}`
-    : input.approximate_address;
+  const foundStreet = (input.street_name || input.approximate_address || '').trim();
+  const foundNum = (input.street_number || '').trim();
+  const foundBarrio = (input.neighborhood || '').trim();
+
+  let formattedFoundAddress = foundStreet;
+  if (foundNum && !foundStreet.includes(foundNum)) {
+    formattedFoundAddress = `${formattedFoundAddress} ${foundNum}`;
+  }
+  if (foundBarrio) {
+    formattedFoundAddress = `${formattedFoundAddress}, B° ${foundBarrio.replace(/^b[°ºa-z.]*\s*/i, '')}`;
+  }
 
   const { data: reportData, error: reportError } = await supabase
     .from('found_reports')
@@ -386,7 +402,7 @@ export async function createFoundReportInDb(input: FoundReportInput): Promise<st
       finder_id: userId || null,
       found_date: input.found_date,
       found_location: `POINT(${input.longitude} ${input.latitude})`,
-      approximate_address: formattedAddress,
+      approximate_address: formattedFoundAddress,
       is_holding: input.is_holding,
       description: input.description,
       status: 'ACTIVE',

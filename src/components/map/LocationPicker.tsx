@@ -6,25 +6,17 @@ import { Crosshair, MapPin, Search, Navigation, Loader2 } from 'lucide-react';
 interface LocationPickerProps {
   initialLat?: number;
   initialLng?: number;
-  onLocationChange: (lat: number, lng: number, address?: string) => void;
+  onLocationChange: (lat: number, lng: number, street?: string, houseNumber?: string) => void;
   label?: string;
   helperText?: string;
 }
-
-const POPULAR_TRELEW_ZONES = [
-  { name: 'Centro / Plaza', address: 'San Martín y Mitre', lat: -43.2529, lng: -65.3094 },
-  { name: 'Padre Juan / Conesa', address: 'Conesa y Cutillo', lat: -43.2435, lng: -65.2965 },
-  { name: 'Laguna Chiquichano', address: 'Av. Lewis Jones y Alem', lat: -43.2492, lng: -65.2965 },
-  { name: 'Los Aromos', address: 'Soberanía Nacional y Chile', lat: -43.2615, lng: -65.3260 },
-  { name: 'Terminal', address: 'Urquiza y Colombia', lat: -43.2562, lng: -65.3040 },
-];
 
 export default function LocationPicker({
   initialLat = -43.24895, // Trelew
   initialLng = -65.30505,
   onLocationChange,
   label = 'Ubicación en el mapa',
-  helperText = 'Tocá el mapa o arrastrá el marcador hacia el lugar exacto. La calle y número se completarán automáticamente.',
+  helperText = 'Tocá el mapa o arrastrá el marcador hacia el lugar exacto. La calle y número se detectarán automáticamente.',
 }: LocationPickerProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
@@ -45,7 +37,7 @@ export default function LocationPicker({
   const [locationStatus, setLocationStatus] = useState<string | null>(null);
 
   // Obtener ÚNICAMENTE el nombre de la calle y número (sin barrios confusos ni chacras)
-  const fetchAddressFromCoords = async (lat: number, lng: number): Promise<string | null> => {
+  const fetchAddressFromCoords = async (lat: number, lng: number): Promise<{ street: string; houseNumber: string } | null> => {
     try {
       setIsGeocoding(true);
       const res = await fetch(
@@ -63,10 +55,12 @@ export default function LocationPicker({
       const road = addr.road || addr.pedestrian || addr.street || addr.footway || addr.path || addr.avenue || '';
       const houseNumber = addr.house_number || '';
 
-      // Si detecta la calle, poner ÚNICAMENTE calle y número (limpiando cualquier sufijo de barrio)
       if (road) {
         const cleanRoad = road.split(',')[0].replace(/\s+/g, ' ').trim();
-        return houseNumber ? `${cleanRoad} ${houseNumber}` : cleanRoad;
+        return {
+          street: cleanRoad,
+          houseNumber: houseNumber ? houseNumber.trim() : '',
+        };
       }
 
       if (data.display_name) {
@@ -74,7 +68,9 @@ export default function LocationPicker({
           .split(',')
           .filter((p: string) => !/chacra|parcela|lote|radio|barrio|b°|bº/i.test(p))[0]
           ?.trim();
-        return firstPart || null;
+        if (firstPart) {
+          return { street: firstPart, houseNumber: '' };
+        }
       }
 
       return null;
@@ -86,23 +82,18 @@ export default function LocationPicker({
     }
   };
 
-  const handlePositionChanged = async (lat: number, lng: number, directAddress?: string) => {
+  const handlePositionChanged = async (lat: number, lng: number) => {
     setCoords({ lat, lng });
-
-    // Si viene de un botón de zona rápida directa
-    if (directAddress) {
-      onLocationChangeRef.current(lat, lng, directAddress);
-      return;
-    }
 
     // Notificar coordenadas inmediatamente
     onLocationChangeRef.current(lat, lng);
 
     // Obtener la calle y número exacto
-    const address = await fetchAddressFromCoords(lat, lng);
-    if (address) {
-      onLocationChangeRef.current(lat, lng, address);
+    const addr = await fetchAddressFromCoords(lat, lng);
+    if (addr) {
+      onLocationChangeRef.current(lat, lng, addr.street, addr.houseNumber);
     }
+  };
   };
 
   useEffect(() => {
@@ -175,9 +166,9 @@ export default function LocationPicker({
     };
   }, []);
 
-  const setLocationDirect = (lat: number, lng: number, address?: string) => {
+  const setLocationDirect = (lat: number, lng: number) => {
     setCoords({ lat, lng });
-    handlePositionChanged(lat, lng, address);
+    handlePositionChanged(lat, lng);
     if (mapRef.current && markerRef.current) {
       mapRef.current.flyTo([lat, lng], 16, { duration: 1.2 });
       markerRef.current.setLatLng([lat, lng]);
@@ -186,7 +177,7 @@ export default function LocationPicker({
 
   const handleUseGPS = () => {
     if (!navigator.geolocation) {
-      alert('Tu navegador no soporta geolocalización. Podés tocar el mapa o elegir una zona rápida.');
+      alert('Tu navegador no soporta geolocalización. Podés tocar el mapa para marcar el punto.');
       return;
     }
 
@@ -219,7 +210,7 @@ export default function LocationPicker({
             if (secondErr.code === 1) {
               setLocationStatus('⚠️ Permiso denegado. Tocá el icono del candado en la barra de tu navegador para permitir la ubicación o seleccioná en el mapa.');
             } else {
-              setLocationStatus('💡 No se pudo detectar GPS en esta PC. Podés mover el mapa o tocar uno de los accesos rápidos de abajo.');
+              setLocationStatus('💡 No se pudo detectar GPS en esta PC. Podés mover el marcador en el mapa.');
             }
           },
           { enableHighAccuracy: false, timeout: 12000, maximumAge: 300000 }
@@ -241,7 +232,7 @@ export default function LocationPicker({
           {isGeocoding && (
             <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 animate-pulse">
               <Loader2 className="w-3 h-3 animate-spin" />
-              Leyendo calle del mapa...
+              Detectando calle...
             </span>
           )}
 
@@ -264,23 +255,6 @@ export default function LocationPicker({
       )}
 
       <p className="text-xs text-zinc-500">{helperText}</p>
-
-      {/* Selector Rápido de Zonas de Trelew */}
-      <div className="flex flex-wrap items-center gap-1.5 pt-1">
-        <span className="text-[11px] font-bold text-zinc-500 flex items-center gap-1">
-          <Navigation className="w-3 h-3 text-orange-500" /> Zonas rápidas:
-        </span>
-        {POPULAR_TRELEW_ZONES.map((zone) => (
-          <button
-            key={zone.name}
-            type="button"
-            onClick={() => setLocationDirect(zone.lat, zone.lng, zone.address)}
-            className="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-zinc-100 dark:bg-zinc-800 hover:bg-orange-100 dark:hover:bg-orange-950/50 hover:text-orange-600 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700 transition-colors cursor-pointer"
-          >
-            {zone.name}
-          </button>
-        ))}
-      </div>
 
       {/* Contenedor del Mapa */}
       <div className="relative w-full h-64 rounded-xl overflow-hidden border border-zinc-200 dark:border-zinc-800 shadow-inner">
