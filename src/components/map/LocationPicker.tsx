@@ -44,7 +44,65 @@ export default function LocationPicker({
   const [isGeocoding, setIsGeocoding] = useState(false);
   const [locationStatus, setLocationStatus] = useState<string | null>(null);
 
-  // Función para obtener la calle y número exacto vía OpenStreetMap Nominatim (Reverse Geocoding gratuito)
+  // Resolver de barrios reales de Trelew (filtra nombres catastrales técnicos de OpenStreetMap como 'Chacra 136')
+  const resolveTrelewNeighborhood = (rawName: string | undefined, lat: number, lng: number): string | null => {
+    // 1. Zona B° Padre Juan / Codepro (Conesa, Cutillo, Winter, Lloyd Jones, Eva Perón norte)
+    if (lat >= -43.247 && lat <= -43.236 && lng >= -65.305 && lng <= -65.286) {
+      return 'Padre Juan / Codepro';
+    }
+    // 2. B° Centro (Plaza Independencia, San Martín, 25 de Mayo, Fontana, Belgrano)
+    if (lat >= -43.254 && lat <= -43.246 && lng >= -65.313 && lng <= -65.300) {
+      return 'Centro';
+    }
+    // 3. Laguna Chiquichano / Alberdi
+    if (lat >= -43.256 && lat <= -43.247 && lng >= -65.300 && lng <= -65.290) {
+      return 'Laguna Chiquichano';
+    }
+    // 4. B° Los Aromos
+    if (lat >= -43.260 && lat <= -43.252 && lng >= -65.322 && lng <= -65.310) {
+      return 'Los Aromos';
+    }
+    // 5. B° Santa Catalina / 290 Viviendas
+    if (lat >= -43.239 && lat <= -43.228 && lng >= -65.320 && lng <= -65.300) {
+      return 'Santa Catalina';
+    }
+    // 6. B° Tiro Federal
+    if (lat >= -43.242 && lat <= -43.230 && lng >= -65.300 && lng <= -65.282) {
+      return 'Tiro Federal';
+    }
+    // 7. B° Don Bosco
+    if (lat >= -43.250 && lat <= -43.241 && lng >= -65.324 && lng <= -65.310) {
+      return 'Don Bosco';
+    }
+    // 8. B° San Martín / Corradi
+    if (lat >= -43.265 && lat <= -43.252 && lng >= -65.335 && lng <= -65.318) {
+      return 'San Martín';
+    }
+    // 9. B° Etchepare / San José
+    if (lat >= -43.272 && lat <= -43.258 && lng >= -65.318 && lng <= -65.295) {
+      return 'Etchepare';
+    }
+    // 10. B° Planta de Gas
+    if (lat >= -43.254 && lat <= -43.240 && lng >= -65.288 && lng <= -65.268) {
+      return 'Planta de Gas';
+    }
+    // 11. B° INTA / Menfa / Amaya
+    if (lat >= -43.275 && lat <= -43.255 && lng >= -65.348 && lng <= -65.328) {
+      return 'INTA / Menfa';
+    }
+
+    // Si viene un barrio de OpenStreetMap, verificar que no sea una designación catastral técnica
+    if (rawName) {
+      const isCadastral = /chacra|parcela|lote|secci[oó]n|fracci[oó]n|manzana|radio\s*\d+/i.test(rawName);
+      if (!isCadastral) {
+        return rawName;
+      }
+    }
+
+    return null;
+  };
+
+  // Función para obtener la calle y número exacto vía OpenStreetMap Nominatim con normalización local
   const fetchAddressFromCoords = async (lat: number, lng: number): Promise<string | null> => {
     try {
       setIsGeocoding(true);
@@ -62,7 +120,8 @@ export default function LocationPicker({
 
       const road = addr.road || addr.pedestrian || addr.street || addr.footway || addr.path || addr.avenue || '';
       const houseNumber = addr.house_number || '';
-      const neighborhood = addr.neighbourhood || addr.suburb || addr.residential || addr.city_district || '';
+      const rawNeighborhood = addr.neighbourhood || addr.suburb || addr.residential || addr.city_district || '';
+      const neighborhood = resolveTrelewNeighborhood(rawNeighborhood, lat, lng);
       const city = addr.city || addr.town || addr.village || 'Trelew';
 
       let formatted = '';
@@ -74,7 +133,14 @@ export default function LocationPicker({
       } else if (neighborhood) {
         formatted = `B° ${neighborhood}, ${city}`;
       } else if (data.display_name) {
-        formatted = data.display_name.split(',').slice(0, 2).join(',').trim();
+        // Filtrar números de chacra del display name
+        const cleanName = data.display_name
+          .split(',')
+          .filter((part: string) => !/chacra\s*\d+/i.test(part))
+          .slice(0, 2)
+          .join(',')
+          .trim();
+        formatted = cleanName || `Trelew (${lat.toFixed(4)}, ${lng.toFixed(4)})`;
       }
 
       return formatted || null;
