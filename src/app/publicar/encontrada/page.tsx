@@ -189,7 +189,7 @@ export default function PublicarEncontradaPage() {
               </label>
               <select
                 value={formData.species}
-                onChange={(e) => setFormData({ ...formData, species: e.target.value as PetSpecies })}
+                onChange={(e) => setFormData((prev) => ({ ...prev, species: e.target.value as PetSpecies }))}
                 className="w-full px-3 py-2.5 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-sm focus:outline-none cursor-pointer"
               >
                 <option value="dog">Perro 🐕</option>
@@ -208,7 +208,7 @@ export default function PublicarEncontradaPage() {
                 type="text"
                 placeholder="Ej: Blanco con manchas"
                 value={formData.primary_color || ''}
-                onChange={(e) => setFormData({ ...formData, primary_color: e.target.value })}
+                onChange={(e) => setFormData((prev) => ({ ...prev, primary_color: e.target.value }))}
                 className="w-full px-3 py-2.5 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-sm focus:outline-none"
               />
             </div>
@@ -219,7 +219,7 @@ export default function PublicarEncontradaPage() {
               </label>
               <select
                 value={formData.size}
-                onChange={(e) => setFormData({ ...formData, size: e.target.value as PetSize })}
+                onChange={(e) => setFormData((prev) => ({ ...prev, size: e.target.value as PetSize }))}
                 className="w-full px-3 py-2.5 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-sm focus:outline-none cursor-pointer"
               >
                 <option value="small">Chico (-10kg)</option>
@@ -238,7 +238,7 @@ export default function PublicarEncontradaPage() {
               rows={3}
               placeholder="Ej: Tenía collar verde, parece bien cuidado y es muy cariñoso. Lo tengo alimentado y protegido..."
               value={formData.description || ''}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
               className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 text-zinc-900 dark:text-zinc-100"
             />
           </div>
@@ -258,7 +258,7 @@ export default function PublicarEncontradaPage() {
               type="text"
               placeholder="Ej: Av. Fontana y San Martín"
               value={formData.approximate_address || ''}
-              onChange={(e) => setFormData({ ...formData, approximate_address: e.target.value })}
+              onChange={(e) => setFormData((prev) => ({ ...prev, approximate_address: e.target.value }))}
               className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
             />
           </div>
@@ -266,7 +266,14 @@ export default function PublicarEncontradaPage() {
           <LocationPicker
             initialLat={formData.latitude}
             initialLng={formData.longitude}
-            onLocationChange={(lat, lng) => setFormData({ ...formData, latitude: lat, longitude: lng })}
+            onLocationChange={(lat, lng, address) => {
+              setFormData((prev) => ({
+                ...prev,
+                latitude: lat,
+                longitude: lng,
+                ...(address ? { approximate_address: address } : {}),
+              }));
+            }}
             label="Marcar lugar del hallazgo"
           />
         </div>
@@ -286,7 +293,7 @@ export default function PublicarEncontradaPage() {
                 type="text"
                 placeholder="Ej: Lucía"
                 value={formData.contact_name || ''}
-                onChange={(e) => setFormData({ ...formData, contact_name: e.target.value })}
+                onChange={(e) => setFormData((prev) => ({ ...prev, contact_name: e.target.value }))}
                 className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-sm focus:outline-none"
               />
             </div>
@@ -299,7 +306,7 @@ export default function PublicarEncontradaPage() {
                 type="tel"
                 placeholder="Ej: 280 499-8877"
                 value={formData.contact_phone || ''}
-                onChange={(e) => setFormData({ ...formData, contact_phone: e.target.value })}
+                onChange={(e) => setFormData((prev) => ({ ...prev, contact_phone: e.target.value }))}
                 className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-sm focus:outline-none"
               />
             </div>

@@ -174,7 +174,7 @@ export default function PublicarPerdidaPage() {
                 type="text"
                 placeholder="Ej: Toby, Luna, Mishi"
                 value={formData.name || ''}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
                 className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
               />
             </div>
@@ -185,7 +185,7 @@ export default function PublicarPerdidaPage() {
               </label>
               <select
                 value={formData.species}
-                onChange={(e) => setFormData({ ...formData, species: e.target.value as PetSpecies })}
+                onChange={(e) => setFormData((prev) => ({ ...prev, species: e.target.value as PetSpecies }))}
                 className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 cursor-pointer"
               >
                 <option value="dog">Perro 🐕</option>
@@ -204,8 +204,8 @@ export default function PublicarPerdidaPage() {
               </label>
               <select
                 value={formData.size}
-                onChange={(e) => setFormData({ ...formData, size: e.target.value as PetSize })}
-                className="w-full px-3 py-2.5 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-sm focus:outline-none cursor-pointer"
+                onChange={(e) => setFormData((prev) => ({ ...prev, size: e.target.value as PetSize }))}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-sm focus:outline-none cursor-pointer"
               >
                 <option value="small">Chico (-10kg)</option>
                 <option value="medium">Mediano (10-25kg)</option>
@@ -222,8 +222,8 @@ export default function PublicarPerdidaPage() {
                 type="text"
                 placeholder="Ej: Negro, Marrón, Blanco"
                 value={formData.primary_color || ''}
-                onChange={(e) => setFormData({ ...formData, primary_color: e.target.value })}
-                className="w-full px-3 py-2.5 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                onChange={(e) => setFormData((prev) => ({ ...prev, primary_color: e.target.value }))}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
               />
             </div>
 
@@ -233,8 +233,8 @@ export default function PublicarPerdidaPage() {
               </label>
               <select
                 value={formData.gender}
-                onChange={(e) => setFormData({ ...formData, gender: e.target.value as PetGender })}
-                className="w-full px-3 py-2.5 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-sm focus:outline-none cursor-pointer"
+                onChange={(e) => setFormData((prev) => ({ ...prev, gender: e.target.value as PetGender }))}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-sm focus:outline-none cursor-pointer"
               >
                 <option value="male">Macho</option>
                 <option value="female">Hembra</option>
@@ -251,7 +251,7 @@ export default function PublicarPerdidaPage() {
               rows={3}
               placeholder="Ej: Llevaba collar rojo sin chapita, tiene una manchita blanca en el pecho, renguea un poco..."
               value={formData.description || ''}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
               className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
             />
           </div>
@@ -272,7 +272,7 @@ export default function PublicarPerdidaPage() {
                 type="text"
                 placeholder="Ej: B° Los Aromos, cerca de la plaza"
                 value={formData.approximate_address || ''}
-                onChange={(e) => setFormData({ ...formData, approximate_address: e.target.value })}
+                onChange={(e) => setFormData((prev) => ({ ...prev, approximate_address: e.target.value }))}
                 className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
               />
             </div>
@@ -284,7 +284,7 @@ export default function PublicarPerdidaPage() {
               <input
                 type="datetime-local"
                 value={formData.last_seen_date || ''}
-                onChange={(e) => setFormData({ ...formData, last_seen_date: e.target.value })}
+                onChange={(e) => setFormData((prev) => ({ ...prev, last_seen_date: e.target.value }))}
                 className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
               />
             </div>
@@ -293,7 +293,14 @@ export default function PublicarPerdidaPage() {
           <LocationPicker
             initialLat={formData.latitude}
             initialLng={formData.longitude}
-            onLocationChange={(lat, lng) => setFormData({ ...formData, latitude: lat, longitude: lng })}
+            onLocationChange={(lat, lng, address) => {
+              setFormData((prev) => ({
+                ...prev,
+                latitude: lat,
+                longitude: lng,
+                ...(address ? { approximate_address: address } : {}),
+              }));
+            }}
             label="Marcar punto en el mapa de Trelew"
           />
         </div>
@@ -313,7 +320,7 @@ export default function PublicarPerdidaPage() {
                 type="text"
                 placeholder="Ej: Laura"
                 value={formData.contact_name || ''}
-                onChange={(e) => setFormData({ ...formData, contact_name: e.target.value })}
+                onChange={(e) => setFormData((prev) => ({ ...prev, contact_name: e.target.value }))}
                 className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
               />
             </div>
@@ -326,7 +333,7 @@ export default function PublicarPerdidaPage() {
                 type="tel"
                 placeholder="Ej: 280 412-3456"
                 value={formData.contact_phone || ''}
-                onChange={(e) => setFormData({ ...formData, contact_phone: e.target.value })}
+                onChange={(e) => setFormData((prev) => ({ ...prev, contact_phone: e.target.value }))}
                 className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
               />
             </div>

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useRef } from 'react';
-import { Crosshair, MapPin, Search, Navigation } from 'lucide-react';
+import { Crosshair, MapPin, Search, Navigation, Loader2 } from 'lucide-react';
 
 interface LocationPickerProps {
   initialLat?: number;
@@ -24,18 +24,85 @@ export default function LocationPicker({
   initialLng = -65.30505,
   onLocationChange,
   label = 'Ubicación en el mapa',
-  helperText = 'Tocá el mapa o arrastrá el marcador hacia el lugar exacto donde fue vista la mascota.',
+  helperText = 'Tocá el mapa o arrastrá el marcador hacia el lugar exacto. La calle y altura se completarán automáticamente.',
 }: LocationPickerProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
   const markerRef = useRef<any>(null);
+
+  // Mantener referencia fresca a la función de callback para evitar stale closures
+  const onLocationChangeRef = useRef(onLocationChange);
+  useEffect(() => {
+    onLocationChangeRef.current = onLocationChange;
+  }, [onLocationChange]);
 
   const [coords, setCoords] = useState<{ lat: number; lng: number }>({
     lat: initialLat,
     lng: initialLng,
   });
   const [isLocating, setIsLocating] = useState(false);
+  const [isGeocoding, setIsGeocoding] = useState(false);
   const [locationStatus, setLocationStatus] = useState<string | null>(null);
+
+  // Función para obtener la calle y número exacto vía OpenStreetMap Nominatim (Reverse Geocoding gratuito)
+  const fetchAddressFromCoords = async (lat: number, lng: number): Promise<string | null> => {
+    try {
+      setIsGeocoding(true);
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`,
+        {
+          headers: {
+            'Accept-Language': 'es',
+          },
+        }
+      );
+      if (!res.ok) return null;
+      const data = await res.json();
+      const addr = data.address || {};
+
+      const road = addr.road || addr.pedestrian || addr.street || addr.footway || addr.path || addr.avenue || '';
+      const houseNumber = addr.house_number || '';
+      const neighborhood = addr.neighbourhood || addr.suburb || addr.residential || addr.city_district || '';
+      const city = addr.city || addr.town || addr.village || 'Trelew';
+
+      let formatted = '';
+      if (road) {
+        formatted = houseNumber ? `${road} ${houseNumber}` : road;
+        if (neighborhood && !formatted.toLowerCase().includes(neighborhood.toLowerCase())) {
+          formatted += `, B° ${neighborhood}`;
+        }
+      } else if (neighborhood) {
+        formatted = `B° ${neighborhood}, ${city}`;
+      } else if (data.display_name) {
+        formatted = data.display_name.split(',').slice(0, 2).join(',').trim();
+      }
+
+      return formatted || null;
+    } catch (e) {
+      console.error('Error reverse geocoding:', e);
+      return null;
+    } finally {
+      setIsGeocoding(false);
+    }
+  };
+
+  const handlePositionChanged = async (lat: number, lng: number, directZoneName?: string) => {
+    setCoords({ lat, lng });
+
+    if (directZoneName) {
+      onLocationChangeRef.current(lat, lng, directZoneName);
+      return;
+    }
+
+    // Notificar coordenadas inmediatamente
+    onLocationChangeRef.current(lat, lng);
+
+    // Obtener la calle y número del mapa
+    const address = await fetchAddressFromCoords(lat, lng);
+    if (address) {
+      onLocationChangeRef.current(lat, lng, address);
+    }
+  };
 
   useEffect(() => {
     let isMounted = true;
@@ -83,14 +150,12 @@ export default function LocationPicker({
 
         marker.on('dragend', (e: any) => {
           const newPos = e.target.getLatLng();
-          setCoords({ lat: newPos.lat, lng: newPos.lng });
-          onLocationChange(newPos.lat, newPos.lng);
+          handlePositionChanged(newPos.lat, newPos.lng);
         });
 
         map.on('click', (e: any) => {
           marker.setLatLng(e.latlng);
-          setCoords({ lat: e.latlng.lat, lng: e.latlng.lng });
-          onLocationChange(e.latlng.lat, e.latlng.lng);
+          handlePositionChanged(e.latlng.lat, e.latlng.lng);
         });
 
         markerRef.current = marker;
@@ -111,7 +176,7 @@ export default function LocationPicker({
 
   const setLocationDirect = (lat: number, lng: number, zoneName?: string) => {
     setCoords({ lat, lng });
-    onLocationChange(lat, lng, zoneName);
+    handlePositionChanged(lat, lng, zoneName);
     if (mapRef.current && markerRef.current) {
       mapRef.current.flyTo([lat, lng], 16, { duration: 1.2 });
       markerRef.current.setLatLng([lat, lng]);
@@ -171,15 +236,24 @@ export default function LocationPicker({
           {label}
         </label>
 
-        <button
-          type="button"
-          onClick={handleUseGPS}
-          disabled={isLocating}
-          className="flex items-center gap-1.5 text-xs font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 px-3 py-1.5 rounded-lg border border-blue-200 dark:border-blue-800 transition-colors cursor-pointer"
-        >
-          <Crosshair className={`w-3.5 h-3.5 ${isLocating ? 'animate-spin' : ''}`} />
-          {isLocating ? 'Obteniendo GPS...' : 'Usar mi ubicación actual'}
-        </button>
+        <div className="flex items-center gap-2">
+          {isGeocoding && (
+            <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 animate-pulse">
+              <Loader2 className="w-3 h-3 animate-spin" />
+              Leyendo calle del mapa...
+            </span>
+          )}
+
+          <button
+            type="button"
+            onClick={handleUseGPS}
+            disabled={isLocating}
+            className="flex items-center gap-1.5 text-xs font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 px-3 py-1.5 rounded-lg border border-blue-200 dark:border-blue-800 transition-colors cursor-pointer"
+          >
+            <Crosshair className={`w-3.5 h-3.5 ${isLocating ? 'animate-spin' : ''}`} />
+            {isLocating ? 'Obteniendo GPS...' : 'Usar mi ubicación actual'}
+          </button>
+        </div>
       </div>
 
       {locationStatus && (

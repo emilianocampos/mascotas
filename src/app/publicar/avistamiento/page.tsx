@@ -133,7 +133,7 @@ export default function PublicarAvistamientoPage() {
                 type="text"
                 placeholder="Ej: Calle 25 de Mayo y Pellegrini"
                 value={formData.approximate_address || ''}
-                onChange={(e) => setFormData({ ...formData, approximate_address: e.target.value })}
+                onChange={(e) => setFormData((prev) => ({ ...prev, approximate_address: e.target.value }))}
                 className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-sm focus:outline-none"
               />
             </div>
@@ -145,7 +145,7 @@ export default function PublicarAvistamientoPage() {
               <input
                 type="datetime-local"
                 value={formData.sighting_date || ''}
-                onChange={(e) => setFormData({ ...formData, sighting_date: e.target.value })}
+                onChange={(e) => setFormData((prev) => ({ ...prev, sighting_date: e.target.value }))}
                 className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-sm focus:outline-none"
               />
             </div>
@@ -159,7 +159,7 @@ export default function PublicarAvistamientoPage() {
               rows={3}
               placeholder="Ej: Iba trotando en dirección a la Laguna Chiquichano, se veía cansado pero en buen estado..."
               value={formData.description || ''}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
               className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-sm focus:outline-none"
             />
           </div>
@@ -167,7 +167,14 @@ export default function PublicarAvistamientoPage() {
           <LocationPicker
             initialLat={formData.latitude}
             initialLng={formData.longitude}
-            onLocationChange={(lat, lng) => setFormData({ ...formData, latitude: lat, longitude: lng })}
+            onLocationChange={(lat, lng, address) => {
+              setFormData((prev) => ({
+                ...prev,
+                latitude: lat,
+                longitude: lng,
+                ...(address ? { approximate_address: address } : {}),
+              }));
+            }}
             label="Punto en el mapa de Trelew"
           />
         </div>
