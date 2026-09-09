@@ -6,6 +6,79 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+export function capitalizeFirst(text?: string | null): string {
+  if (!text) return '';
+  const trimmed = text.trim();
+  if (!trimmed) return '';
+  return trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
+}
+
+export function capitalizeWords(text?: string | null): string {
+  if (!text) return '';
+  const smallWords = new Set(['de', 'del', 'la', 'las', 'el', 'los', 'y', 'en', 'a', 'b°', 'bº']);
+  const words = text.trim().split(/\s+/);
+  return words
+    .map((w, idx) => {
+      const lower = w.toLowerCase();
+      if (idx > 0 && smallWords.has(lower)) {
+        return lower;
+      }
+      return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
+    })
+    .join(' ');
+}
+
+export function formatWhatsAppPhone(phone?: string | null): string {
+  if (!phone) return '';
+  let clean = phone.replace(/[^0-9]/g, '');
+  if (!clean) return '';
+  
+  // Quitar 0 inicial si existe
+  if (clean.startsWith('0')) {
+    clean = clean.substring(1);
+  }
+  // Si tiene 10 dígitos (ej: 2804123456 en Trelew), anteponer 549 para Argentina
+  if (clean.length === 10) {
+    clean = `549${clean}`;
+  } else if (clean.startsWith('54') && !clean.startsWith('549') && clean.length === 12) {
+    // Si tiene 542804xxxxxx convertir a 5492804xxxxxx
+    clean = `549${clean.substring(2)}`;
+  }
+  return clean;
+}
+
+export function getLocalDatetimeInputValue(date: Date = new Date()): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+}
+
+export function parseLocalInputToIso(datetimeLocalStr?: string | null): string {
+  if (!datetimeLocalStr) return new Date().toISOString();
+  if (datetimeLocalStr.endsWith('Z') || /[+-]\d{2}:\d{2}$/.test(datetimeLocalStr)) {
+    return new Date(datetimeLocalStr).toISOString();
+  }
+  const parts = datetimeLocalStr.split('T');
+  if (parts.length === 2) {
+    const dateParts = parts[0].split('-').map(Number);
+    const timeParts = parts[1].split(':').map(Number);
+    if (dateParts.length === 3 && timeParts.length >= 2) {
+      const [y, m, d] = dateParts;
+      const [h, min] = timeParts;
+      if (!isNaN(y) && !isNaN(m) && !isNaN(d) && !isNaN(h) && !isNaN(min)) {
+        const localDate = new Date(y, m - 1, d, h, min, 0);
+        return localDate.toISOString();
+      }
+    }
+  }
+  const d = new Date(datetimeLocalStr);
+  if (isNaN(d.getTime())) return new Date().toISOString();
+  return d.toISOString();
+}
+
 export function formatDistance(meters?: number | null): string {
   if (meters === undefined || meters === null) return '';
   if (meters < 1000) {
@@ -20,7 +93,7 @@ export function formatTimeAgo(dateString: string): string {
   const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
 
   if (diffInSeconds < 60) {
-    return 'hace unos segundos';
+    return 'hace unos instantes';
   }
   const diffInMinutes = Math.floor(diffInSeconds / 60);
   if (diffInMinutes < 60) {

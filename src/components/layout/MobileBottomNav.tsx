@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Compass, PlusCircle, HeartHandshake, Eye } from 'lucide-react';
+import { Home, Compass, PlusCircle, HeartHandshake, FileText } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export function MobileBottomNav() {
@@ -11,10 +11,10 @@ export function MobileBottomNav() {
 
   const items = [
     { href: '/', label: 'Inicio', icon: Home },
-    { href: '/mapa', label: 'Mapa', icon: Compass },
-    { href: '/publicar/perdida', label: 'Perdí', icon: PlusCircle, isMain: true },
-    { href: '/publicar/encontrada', label: 'Encontré', icon: HeartHandshake },
-    { href: '/publicar/avistamiento', label: 'Avistamiento', icon: Eye },
+    { href: '/publicar/perdida', label: 'Perdí', icon: PlusCircle },
+    { href: '/mapa', label: 'Mapa', icon: Compass, isMain: true },
+    { href: '/publicar/encontrada', label: 'Encontré / Vi', icon: HeartHandshake },
+    { href: '/mis-reportes', label: 'Mis Reportes', icon: FileText },
   ];
 
   return (
@@ -31,10 +31,10 @@ export function MobileBottomNav() {
                 href={item.href}
                 className="flex flex-col items-center justify-center -mt-4 group"
               >
-                <div className="w-12 h-12 rounded-full bg-rose-600 hover:bg-rose-700 text-white flex items-center justify-center shadow-lg shadow-rose-600/30 group-active:scale-95 transition-transform">
+                <div className="w-13 h-13 rounded-full bg-gradient-to-tr from-amber-500 via-orange-500 to-rose-500 text-white flex items-center justify-center shadow-lg shadow-orange-500/35 ring-4 ring-white dark:ring-zinc-950 group-active:scale-95 transition-transform">
                   <Icon className="w-6 h-6" />
                 </div>
-                <span className="text-[10px] font-bold text-rose-600 dark:text-rose-400 mt-1">
+                <span className="text-[10px] font-black text-orange-600 dark:text-orange-400 mt-0.5">
                   {item.label}
                 </span>
               </Link>
@@ -48,7 +48,7 @@ export function MobileBottomNav() {
               className={cn(
                 'flex flex-col items-center justify-center transition-colors',
                 isActive
-                  ? 'text-orange-600 dark:text-orange-400'
+                  ? 'text-orange-600 dark:text-orange-400 font-bold'
                   : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-200'
               )}
             >

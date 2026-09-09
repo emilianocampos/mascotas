@@ -127,25 +127,51 @@ export default function InteractiveMap({
           if (onMarkerSelect) onMarkerSelect(m);
         });
 
-        // Popup interactivo
+        // Popup interactivo moderno y completo
+        const isLostPet = m.marker_type === 'lost';
+        const isSighting = m.marker_type === 'sighting';
+        const sightingUrl = `/publicar/avistamiento?reportId=${m.marker_id}&petName=${encodeURIComponent(m.title.replace(' (Perdida)', ''))}`;
+        const detailUrl = isSighting 
+          ? `/mascota-avistada/${m.marker_id}` 
+          : m.marker_type === 'found' 
+            ? `/mascotas-encontradas/${m.marker_id}` 
+            : `/mascotas-perdidas/${m.marker_id}`;
+
         const popupContent = `
-          <div class="p-1 max-w-[200px] text-zinc-900 font-sans">
+          <div style="min-width: 230px; max-width: 260px; font-family: system-ui, -apple-system, sans-serif; padding: 2px;">
             ${
               m.photo_url
-                ? `<img src="${m.photo_url}" alt="${m.title}" class="w-full h-24 object-cover rounded-lg mb-2 shadow-xs" />`
-                : ''
+                ? `<div style="position: relative; width: 100%; height: 130px; border-radius: 12px; overflow: hidden; margin-bottom: 8px; background-color: #f4f4f5;">
+                    <img src="${m.photo_url}" alt="${m.title}" style="width: 100%; height: 100%; object-fit: cover;" />
+                    <span style="position: absolute; top: 6px; left: 6px; font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 6px; color: white; background: rgba(0,0,0,0.65); backdrop-filter: blur(4px);">
+                      ${badgeText}
+                    </span>
+                   </div>`
+                : `<span class="inline-block px-2 py-0.5 rounded text-[10px] font-bold ${colorBg} text-white mb-2">
+                    ${badgeText}
+                   </span>`
             }
-            <span class="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold ${colorBg} text-white mb-1">
-              ${badgeText}
-            </span>
-            <h4 class="font-bold text-sm leading-tight">${m.title}</h4>
-            <p class="text-xs text-zinc-500 mt-0.5">${formatTimeAgo(m.report_date)}</p>
-            <a href="/mascotas-perdidas/${m.marker_id}" class="mt-2 block w-full text-center bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-semibold py-1.5 rounded-md transition-colors">
-              Ver ficha completa
-            </a>
+            <div style="margin-bottom: 8px;">
+              <h4 style="font-weight: 800; font-size: 15px; margin: 0; color: #18181b; line-height: 1.2;">${m.title}</h4>
+              <p style="font-size: 12px; color: #71717a; margin: 3px 0 0 0; display: flex; align-items: center; gap: 4px;">
+                ⏱️ ${formatTimeAgo(m.report_date)}
+              </p>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 6px; margin-top: 8px;">
+              <a href="${detailUrl}" style="display: block; width: 100%; text-align: center; background-color: #18181b; color: #ffffff; font-size: 12px; font-weight: 700; padding: 8px 10px; border-radius: 10px; text-decoration: none; transition: background-color 0.2s;">
+                ${isSighting ? 'Ver Ficha de Avistamiento' : 'Ver Ficha Completa'}
+              </a>
+              ${
+                isLostPet
+                  ? `<a href="${sightingUrl}" style="display: block; width: 100%; text-align: center; background-color: #fbbf24; color: #18181b; font-size: 11px; font-weight: 800; padding: 6px 10px; border-radius: 10px; text-decoration: none; border: 1px solid #f59e0b;">
+                      🟡 ¿La viste? Reportar avistamiento
+                     </a>`
+                  : ''
+              }
+            </div>
           </div>
         `;
-        marker.bindPopup(popupContent, { maxWidth: 220 });
+        marker.bindPopup(popupContent, { maxWidth: 280, className: 'custom-leaflet-popup' });
       });
     }
 

@@ -48,54 +48,74 @@ export default async function HomePage() {
           </p>
 
           {/* 4 BOTONES DE ACCIÓN PRINCIPALES */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3.5 pt-4 sm:pt-6 max-w-4xl mx-auto">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 pt-4 sm:pt-6 max-w-5xl mx-auto">
             
             {/* 1. PERDÍ UNA MASCOTA */}
             <Link
+              id="tour-btn-lost"
               href="/publicar/perdida"
-              className="group relative flex flex-col items-center justify-center p-3.5 sm:p-5 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white shadow-lg shadow-rose-600/25 hover:shadow-rose-600/40 transform active:scale-95 transition-all text-center"
+              className="group relative flex flex-col items-center justify-center p-4 sm:p-5 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm hover:shadow-xl hover:border-red-500/50 dark:hover:border-red-500/50 transform active:scale-95 transition-all text-center"
             >
-              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-white/20 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
-                <PlusCircle className="w-5 h-5 sm:w-6 sm:h-6" />
+              <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-red-50 dark:bg-red-950/60 border border-red-200/60 dark:border-red-900/60 flex items-center justify-center mb-2.5 text-red-600 dark:text-red-400 group-hover:scale-110 group-hover:bg-red-100 transition-transform">
+                <PlusCircle className="w-7 h-7 sm:w-8 sm:h-8" />
               </div>
-              <span className="text-xs sm:text-base font-extrabold uppercase tracking-tight">Perdí mi mascota</span>
-              <span className="text-[10px] sm:text-xs text-rose-100 mt-0.5">Crear alerta</span>
+              <span className="text-xs sm:text-base font-extrabold uppercase tracking-tight text-zinc-900 dark:text-zinc-100 group-hover:text-red-600 transition-colors">
+                Perdí mi mascota
+              </span>
+              <span className="text-[10px] sm:text-xs font-semibold text-red-600 dark:text-red-400 mt-0.5">
+                🚨 Activar búsqueda
+              </span>
             </Link>
 
             {/* 2. ENCONTRÉ UNA MASCOTA */}
             <Link
+              id="tour-btn-found"
               href="/publicar/encontrada"
-              className="group relative flex flex-col items-center justify-center p-3.5 sm:p-5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-600/25 hover:shadow-emerald-600/40 transform active:scale-95 transition-all text-center"
+              className="group relative flex flex-col items-center justify-center p-4 sm:p-5 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm hover:shadow-xl hover:border-emerald-500/50 dark:hover:border-emerald-500/50 transform active:scale-95 transition-all text-center"
             >
-              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-white/20 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
-                <HeartHandshake className="w-5 h-5 sm:w-6 sm:h-6" />
+              <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200/60 dark:border-emerald-900/60 flex items-center justify-center mb-2.5 text-emerald-600 dark:text-emerald-400 group-hover:scale-110 group-hover:bg-emerald-100 transition-transform">
+                <HeartHandshake className="w-7 h-7 sm:w-8 sm:h-8" />
               </div>
-              <span className="text-xs sm:text-base font-extrabold uppercase tracking-tight">Encontré una</span>
-              <span className="text-[10px] sm:text-xs text-emerald-100 mt-0.5">Buscar dueño</span>
+              <span className="text-xs sm:text-base font-extrabold uppercase tracking-tight text-zinc-900 dark:text-zinc-100 group-hover:text-emerald-600 transition-colors">
+                La encontré
+              </span>
+              <span className="text-[10px] sm:text-xs font-semibold text-emerald-600 dark:text-emerald-400 mt-0.5">
+                🏠 La tengo en tránsito
+              </span>
             </Link>
 
-            {/* 3. VI UNA MASCOTA */}
+            {/* 3. VI UNA MASCOTA (AVISTAMIENTO) */}
             <Link
+              id="tour-btn-sighting"
               href="/publicar/avistamiento"
-              className="group relative flex flex-col items-center justify-center p-3.5 sm:p-5 rounded-2xl bg-amber-500 hover:bg-amber-600 text-white shadow-lg shadow-amber-500/25 hover:shadow-amber-500/40 transform active:scale-95 transition-all text-center"
+              className="group relative flex flex-col items-center justify-center p-4 sm:p-5 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm hover:shadow-xl hover:border-amber-500/50 dark:hover:border-amber-500/50 transform active:scale-95 transition-all text-center"
             >
-              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-white/20 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
-                <Eye className="w-5 h-5 sm:w-6 sm:h-6" />
+              <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-amber-50 dark:bg-amber-950/60 border border-amber-200/60 dark:border-amber-900/60 flex items-center justify-center mb-2.5 text-amber-600 dark:text-amber-400 group-hover:scale-110 group-hover:bg-amber-100 transition-transform">
+                <Eye className="w-7 h-7 sm:w-8 sm:h-8" />
               </div>
-              <span className="text-xs sm:text-base font-extrabold uppercase tracking-tight">Vi una mascota</span>
-              <span className="text-[10px] sm:text-xs text-amber-100 mt-0.5">Reportar dato</span>
+              <span className="text-xs sm:text-base font-extrabold uppercase tracking-tight text-zinc-900 dark:text-zinc-100 group-hover:text-amber-600 transition-colors">
+                Vi una mascota
+              </span>
+              <span className="text-[10px] sm:text-xs font-semibold text-amber-600 dark:text-amber-400 mt-0.5">
+                🟡 Avisar en la calle
+              </span>
             </Link>
 
             {/* 4. EXPLORAR MAPA */}
             <Link
+              id="tour-btn-map"
               href="/mapa"
-              className="group relative flex flex-col items-center justify-center p-3.5 sm:p-5 rounded-2xl bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-white shadow-lg shadow-zinc-900/20 transform active:scale-95 transition-all text-center border border-zinc-700"
+              className="group relative flex flex-col items-center justify-center p-4 sm:p-5 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm hover:shadow-xl hover:border-orange-500/50 dark:hover:border-orange-500/50 transform active:scale-95 transition-all text-center"
             >
-              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-white/10 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
-                <Compass className="w-5 h-5 sm:w-6 sm:h-6 text-orange-400" />
+              <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-orange-50 dark:bg-orange-950/60 border border-orange-200/60 dark:border-orange-900/60 flex items-center justify-center mb-2.5 text-orange-500 dark:text-orange-400 group-hover:scale-110 group-hover:bg-orange-100 transition-transform">
+                <Compass className="w-7 h-7 sm:w-8 sm:h-8" />
               </div>
-              <span className="text-xs sm:text-base font-extrabold uppercase tracking-tight">Explorar Mapa</span>
-              <span className="text-[10px] sm:text-xs text-zinc-300 mt-0.5">Ver en vivo</span>
+              <span className="text-xs sm:text-base font-extrabold uppercase tracking-tight text-zinc-900 dark:text-zinc-100 group-hover:text-orange-600 transition-colors">
+                Explorar Mapa
+              </span>
+              <span className="text-[10px] sm:text-xs font-semibold text-orange-600 dark:text-orange-400 mt-0.5">
+                🗺️ En vivo en Trelew
+              </span>
             </Link>
 
           </div>

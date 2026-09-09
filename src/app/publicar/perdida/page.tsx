@@ -8,6 +8,7 @@ import { lostReportSchema, LostReportInput } from '@/lib/validations/lost-report
 import { PetSpecies, PetSize, PetGender } from '@/types';
 import { PlusCircle, ShieldAlert, Sparkles, CheckCircle2, ArrowRight, Clock } from 'lucide-react';
 import { createLostReportInDb } from '@/services/reports.service';
+import { getLocalDatetimeInputValue, parseLocalInputToIso } from '@/lib/utils';
 
 const FRIENDLY_LOST_LABELS: Record<string, string> = {
   name: 'Nombre de la mascota',
@@ -35,7 +36,7 @@ export default function PublicarPerdidaPage() {
     photos: [],
     latitude: -43.24895,
     longitude: -65.30505,
-    last_seen_date: new Date().toISOString().slice(0, 16),
+    last_seen_date: getLocalDatetimeInputValue(),
     contact_phone_public: true,
   });
 
@@ -43,8 +44,13 @@ export default function PublicarPerdidaPage() {
     e.preventDefault();
     setFormErrors({});
 
+    const payload = {
+      ...formData,
+      last_seen_date: parseLocalInputToIso(formData.last_seen_date),
+    };
+
     // Validar con Zod
-    const validation = lostReportSchema.safeParse(formData);
+    const validation = lostReportSchema.safeParse(payload);
     if (!validation.success) {
       const fieldErrors: Record<string, string> = {};
       validation.error.issues.forEach((err) => {
@@ -65,6 +71,10 @@ export default function PublicarPerdidaPage() {
     try {
       // Inserción real en PostgreSQL / Supabase
       const newId = await createLostReportInDb(validation.data);
+      if (typeof window !== 'undefined') {
+        const { saveCreatedReportId } = await import('@/lib/device-storage');
+        saveCreatedReportId('lost', newId);
+      }
       setIsSubmitting(false);
       setSuccessId(newId);
     } catch (err: any) {

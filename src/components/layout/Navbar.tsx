@@ -36,7 +36,7 @@ export function Navbar() {
           
           {/* Logo & City Selector */}
           <div className="flex items-center gap-3">
-            <Link href="/" className="flex items-center gap-2 group">
+            <Link id="tour-brand" href="/" className="flex items-center gap-2 group">
               <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 via-orange-500 to-rose-500 flex items-center justify-center text-white shadow-md shadow-orange-500/20 group-hover:scale-105 transition-transform">
                 <span className="text-xl">🐾</span>
               </div>
@@ -95,10 +95,11 @@ export function Navbar() {
               className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-semibold bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:hover:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 transition-colors"
             >
               <HeartHandshake className="w-4 h-4 text-emerald-600" />
-              Encontré una mascota
+              Encontré / Vi una mascota
             </Link>
 
             <Link
+              id="tour-nav-my-reports"
               href="/mis-reportes"
               className={cn(
                 'flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors',

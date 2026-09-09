@@ -69,9 +69,9 @@ export function Footer() {
               </Link>
             </li>
             <li>
-              <Link href="/admin" className="hover:text-zinc-900 dark:hover:text-white transition-colors flex items-center gap-1.5">
-                <ShieldCheck className="w-4 h-4 text-zinc-400" />
-                Panel de Moderación
+              <Link href="/mis-reportes" className="hover:text-orange-600 transition-colors flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-orange-500"></span>
+                Panel de Mis Publicaciones
               </Link>
             </li>
           </ul>

@@ -191,7 +191,7 @@ export async function getFoundReportById(id: string): Promise<FoundReport | null
   return data as FoundReport;
 }
 
-// 4c. Obtener Ficha Unificada (sea Perdida o Encontrada)
+// 4c. Obtener Ficha Unificada (sea Perdida, Encontrada o Avistamiento)
 export async function getUnifiedReportById(id: string): Promise<UnifiedReport | null> {
   const lost = await getLostReportById(id);
   if (lost) {
@@ -201,6 +201,50 @@ export async function getUnifiedReportById(id: string): Promise<UnifiedReport | 
   if (found) {
     return { ...found, report_type: 'found' };
   }
+
+  // 4d. Buscar en tabla sightings si el ID corresponde a un avistamiento
+  const supabase = createBrowserClient();
+  const { data: sighting, error: sError } = await supabase
+    .from('sightings')
+    .select('*, lost_report:lost_reports(*, pet:pets(*), profile:profiles(*))')
+    .eq('id', id)
+    .single();
+
+  if (!sError && sighting) {
+    if (sighting.lost_report) {
+      return { ...sighting.lost_report, report_type: 'lost' };
+    }
+
+    // Avistamiento general no vinculado a un reporte específico
+    const loc = sighting.location || { latitude: -43.24895, longitude: -65.30505 };
+    return {
+      id: sighting.id,
+      user_id: sighting.user_id || '',
+      pet_id: sighting.id,
+      status: 'ACTIVE',
+      last_seen_date: sighting.sighting_date,
+      last_seen_location: loc,
+      approximate_address: sighting.approximate_address,
+      description: sighting.description || 'Avistamiento reportado en la vía pública',
+      contact_phone_public: false,
+      views_count: 0,
+      created_at: sighting.created_at || sighting.sighting_date,
+      updated_at: sighting.created_at || sighting.sighting_date,
+      report_type: 'lost',
+      pet: {
+        id: sighting.id,
+        name: 'Mascota Avistada',
+        species: 'dog',
+        breed: 'Vista en la calle',
+        gender: 'unknown',
+        size: 'medium',
+        primary_color: 'A verificar',
+        photos: sighting.photo_url ? [sighting.photo_url] : [],
+        created_at: sighting.created_at || sighting.sighting_date,
+      }
+    };
+  }
+
   return null;
 }
 
@@ -244,7 +288,7 @@ export async function getMapMarkers(
   const [lostRes, foundRes, sightingRes] = await Promise.all([
     supabase.from('lost_reports').select('id, last_seen_date, last_seen_location, pet:pets(name, species, photos)').eq('status', 'ACTIVE'),
     supabase.from('found_reports').select('id, found_date, found_location, pet:pets(name, species, photos)').eq('status', 'ACTIVE'),
-    supabase.from('sightings').select('id, sighting_date, location, photo_url, lost_report:lost_reports(pet:pets(species))'),
+    supabase.from('sightings').select('id, sighting_date, location, photo_url, lost_report_id, lost_report:lost_reports(id, pet:pets(name, species, photos))'),
   ]);
 
   const markers: MapMarkerItem[] = [];
@@ -276,12 +320,13 @@ export async function getMapMarkers(
   });
 
   (sightingRes.data || []).forEach((row: any) => {
+    const petName = row.lost_report?.pet?.name;
     markers.push({
       marker_id: row.id,
       marker_type: 'sighting',
-      title: 'Avistamiento Reportado',
+      title: petName ? `Avistamiento de ${petName}` : 'Mascota Avistada',
       species: row.lost_report?.pet?.species || 'dog',
-      photo_url: row.photo_url || null,
+      photo_url: row.photo_url || row.lost_report?.pet?.photos?.[0] || null,
       latitude: row.location?.latitude || -43.24895,
       longitude: row.location?.longitude || -65.30505,
       report_date: row.sighting_date,
@@ -342,6 +387,8 @@ export async function createLostReportInDb(input: LostReportInput): Promise<stri
       last_seen_location: `POINT(${input.longitude} ${input.latitude})`,
       approximate_address: formattedAddress,
       description: input.description,
+      contact_phone: input.contact_phone || null,
+      contact_name: input.contact_name || null,
       contact_phone_public: input.contact_phone_public,
       status: 'ACTIVE',
     })
@@ -351,6 +398,17 @@ export async function createLostReportInDb(input: LostReportInput): Promise<stri
   if (reportError || !reportData) {
     console.error('Error insertando lost_report:', reportError);
     throw new Error(`Error al crear publicación: ${reportError?.message}`);
+  }
+
+  if (userId && input.contact_phone) {
+    try {
+      await supabase.from('profiles').update({
+        phone: input.contact_phone,
+        full_name: input.contact_name,
+      }).eq('id', userId);
+    } catch (e) {
+      console.warn('No se pudo actualizar profile con phone:', e);
+    }
   }
 
   return reportData.id;
@@ -423,26 +481,143 @@ export async function createSightingInDb(input: SightingInput): Promise<string> 
   const { data: authData } = await supabase.auth.getUser();
   const userId = authData?.user?.id;
 
+  // Si lost_report_id no es un UUID válido o es vacío, asignamos null
+  const validLostReportId = input.lost_report_id && input.lost_report_id.length === 36 && input.lost_report_id !== '11111111-1111-1111-1111-111111111111'
+    ? input.lost_report_id
+    : null;
+
+  let finalDescription = input.description || '';
+  if (input.reporter_name && input.reporter_name.trim()) {
+    finalDescription = `${finalDescription}\n\n👤 Reportado por: ${input.reporter_name.trim()}`;
+  }
+
   const { data, error } = await supabase
     .from('sightings')
     .insert({
-      lost_report_id: input.lost_report_id,
+      lost_report_id: validLostReportId,
       user_id: userId || null,
       location: `POINT(${input.longitude} ${input.latitude})`,
       approximate_address: input.approximate_address,
       sighting_date: input.sighting_date,
       photo_url: input.photo_url || null,
-      description: input.description,
+      description: finalDescription,
       status: 'PENDING',
     })
     .select('id')
     .single();
 
   if (error || !data) {
-    throw new Error(`Error al registrar avistamiento: ${error?.message}`);
+    console.error('Error insertando sighting:', error);
+    throw new Error(`Error al registrar avistamiento: ${error?.message || 'Error en base de datos'}`);
   }
 
   return data.id;
+}
+
+// 9.1 Obtener Ficha de Avistamiento por ID con datos completos
+export async function getSightingById(id: string) {
+  const supabase = createBrowserClient();
+  const { data, error } = await supabase
+    .from('sightings')
+    .select('*, lost_report:lost_reports(*, pet:pets(*), profile:profiles(*))')
+    .eq('id', id)
+    .single();
+
+  if (error || !data) {
+    return null;
+  }
+  return data;
+}
+
+// 9b. Incrementar Contador de Vistas de una Publicación
+export async function incrementReportViews(reportId: string): Promise<number> {
+  const supabase = createBrowserClient();
+  try {
+    const { data, error } = await supabase.rpc('increment_report_views', { p_report_id: reportId });
+    if (!error && typeof data === 'number') {
+      return data;
+    }
+  } catch (e) {
+    console.warn('RPC increment_report_views no disponible, usando fallback.');
+  }
+
+  try {
+    const { data: current } = await supabase
+      .from('lost_reports')
+      .select('views_count')
+      .eq('id', reportId)
+      .single();
+
+    if (current) {
+      const newCount = (current.views_count || 0) + 1;
+      await supabase
+        .from('lost_reports')
+        .update({ views_count: newCount })
+        .eq('id', reportId);
+      return newCount;
+    }
+  } catch (err) {
+    console.error('Error al actualizar contador de vistas:', err);
+  }
+  return 0;
+}
+
+// 9c. Obtener lista de mascotas perdidas activas (para seleccionar en formulario de avistamiento)
+export async function getActiveLostPetsList(): Promise<{ id: string; name: string; photo_url: string | null; address: string; phone?: string; owner_name?: string }[]> {
+  const supabase = createBrowserClient();
+  const { data, error } = await supabase
+    .from('lost_reports')
+    .select('id, approximate_address, contact_phone, contact_name, pet:pets(name, photos), profile:profiles(phone, full_name)')
+    .eq('status', 'ACTIVE')
+    .order('created_at', { ascending: false });
+
+  if (error || !data) return [];
+  return data.map((row: any) => ({
+    id: row.id,
+    name: row.pet?.name || 'Mascota perdida',
+    photo_url: row.pet?.photos?.[0] || null,
+    address: row.approximate_address,
+    phone: row.contact_phone || row.profile?.phone || '',
+    owner_name: row.contact_name || row.profile?.full_name || '',
+  }));
+}
+
+// 9d. Obtener reportes por IDs guardados en el dispositivo
+export async function getReportsByIdsList(type: 'lost' | 'found' | 'sighting', ids: string[]): Promise<any[]> {
+  if (!ids || ids.length === 0) return [];
+  const supabase = createBrowserClient();
+
+  if (type === 'lost') {
+    const { data, error } = await supabase
+      .from('lost_reports')
+      .select('*, pet:pets(*), profile:profiles(*)')
+      .in('id', ids)
+      .order('created_at', { ascending: false });
+    if (error) return [];
+    return data || [];
+  }
+
+  if (type === 'found') {
+    const { data, error } = await supabase
+      .from('found_reports')
+      .select('*, pet:pets(*), profile:profiles(*)')
+      .in('id', ids)
+      .order('created_at', { ascending: false });
+    if (error) return [];
+    return data || [];
+  }
+
+  if (type === 'sighting') {
+    const { data, error } = await supabase
+      .from('sightings')
+      .select('*, lost_report:lost_reports(id, approximate_address, pet:pets(name, species, photos))')
+      .in('id', ids)
+      .order('created_at', { ascending: false });
+    if (error) return [];
+    return data || [];
+  }
+
+  return [];
 }
 
 // 10. Confirmar Reunificación de Mascota (Cambiar estado a REUNITED)

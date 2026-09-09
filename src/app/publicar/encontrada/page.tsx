@@ -8,6 +8,7 @@ import { foundReportSchema, FoundReportInput } from '@/lib/validations/found-rep
 import { PetSpecies, PetSize, PetGender } from '@/types';
 import { HeartHandshake, CheckCircle2, ArrowRight, Clock } from 'lucide-react';
 import { createFoundReportInDb } from '@/services/reports.service';
+import { getLocalDatetimeInputValue, parseLocalInputToIso } from '@/lib/utils';
 
 const FRIENDLY_LABELS: Record<string, string> = {
   species: 'Tipo de animal',
@@ -35,7 +36,7 @@ export default function PublicarEncontradaPage() {
     photos: [],
     latitude: -43.24895,
     longitude: -65.30505,
-    found_date: new Date().toISOString().slice(0, 16),
+    found_date: getLocalDatetimeInputValue(),
     is_holding: true,
   });
 
@@ -43,7 +44,12 @@ export default function PublicarEncontradaPage() {
     e.preventDefault();
     setFormErrors({});
 
-    const validation = foundReportSchema.safeParse(formData);
+    const payload = {
+      ...formData,
+      found_date: parseLocalInputToIso(formData.found_date),
+    };
+
+    const validation = foundReportSchema.safeParse(payload);
     if (!validation.success) {
       const fieldErrors: Record<string, string> = {};
       validation.error.issues.forEach((err) => {
@@ -62,6 +68,10 @@ export default function PublicarEncontradaPage() {
     setIsSubmitting(true);
     try {
       const newId = await createFoundReportInDb(validation.data);
+      if (typeof window !== 'undefined') {
+        const { saveCreatedReportId } = await import('@/lib/device-storage');
+        saveCreatedReportId('found', newId);
+      }
       setIsSubmitting(false);
       setSuccessId(newId);
     } catch (err: any) {

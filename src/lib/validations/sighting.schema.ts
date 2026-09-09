@@ -1,9 +1,7 @@
 import { z } from 'zod';
 
 export const sightingSchema = z.object({
-  lost_report_id: z.string({
-    message: 'Identificador de reporte de mascota inválido',
-  }),
+  lost_report_id: z.string().optional().nullable(),
   latitude: z.number().min(-90).max(90),
   longitude: z.number().min(-180).max(180),
   approximate_address: z.string({

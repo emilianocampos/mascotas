@@ -1,66 +1,95 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { StatusBadge } from '@/components/ui/StatusBadge';
-import { calculateMatchScore } from '@/services/matching.service';
 import { LostReport, FoundReport } from '@/types';
 import { 
   FileText, 
   Heart, 
   Eye, 
   CheckCircle2, 
-  AlertCircle, 
   Sparkles, 
   Share2, 
   PlusCircle,
   Clock,
-  MapPin
+  MapPin,
+  Printer,
+  Smartphone,
+  AlertCircle
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import { getMyReportIds, saveCreatedReportId } from '@/lib/device-storage';
+import { getReportsByIdsList, markReportAsReunitedInDb } from '@/services/reports.service';
+import { formatTimeAgo, formatDate, getSpeciesEmoji } from '@/lib/utils';
 
 export default function MisReportesPage() {
-  const [reunitedReports, setReunitedReports] = useState<string[]>([]);
   const [selectedTab, setSelectedTab] = useState<'lost' | 'found' | 'sightings'>('lost');
+  const [isLoading, setIsLoading] = useState(true);
 
-  const myLostReports: LostReport[] = [
-    {
-      id: '11111111-1111-1111-1111-111111111111',
-      user_id: 'u1',
-      pet_id: 'p1',
-      city_id: 1,
-      status: reunitedReports.includes('11111111-1111-1111-1111-111111111111') ? 'REUNITED' : 'ACTIVE',
-      last_seen_date: new Date(Date.now() - 3 * 3600000).toISOString(),
-      last_seen_location: { latitude: -43.24895, longitude: -65.30505 },
-      approximate_address: 'Plaza Independencia, Trelew Centro',
-      description: 'Toby se asustó con un ruido y salió corriendo.',
-      contact_phone_public: true,
-      views_count: 142,
-      created_at: new Date(Date.now() - 3 * 3600000).toISOString(),
-      updated_at: new Date(Date.now() - 3 * 3600000).toISOString(),
-      pet: {
-        id: 'p1',
-        name: 'Toby',
-        species: 'dog',
-        breed: 'Mestizo Golden',
-        gender: 'male',
-        size: 'medium',
-        primary_color: 'Dorado',
-        photos: ['https://images.unsplash.com/photo-1552053831-71594a27632d?auto=format&fit=crop&q=80&w=600'],
-        created_at: new Date().toISOString(),
-      },
-    },
-  ];
+  const [myLostList, setMyLostList] = useState<any[]>([]);
+  const [myFoundList, setMyFoundList] = useState<any[]>([]);
+  const [mySightingsList, setMySightingsList] = useState<any[]>([]);
 
-  const handleMarkReunited = (id: string, name: string) => {
-    if (confirm(`¿Confirmás que ${name} ya está en casa contigo? 🎉`)) {
-      setReunitedReports((prev) => [...prev, id]);
-      confetti({
-        particleCount: 120,
-        spread: 70,
-        origin: { y: 0.6 },
-      });
+  const [linkInputId, setLinkInputId] = useState('');
+  const [linkMessage, setLinkMessage] = useState<string | null>(null);
+
+  // Cargar reportes vinculados a este dispositivo
+  const loadReports = async () => {
+    setIsLoading(true);
+    try {
+      const lostIds = getMyReportIds('lost');
+      const foundIds = getMyReportIds('found');
+      const sightingIds = getMyReportIds('sighting');
+
+      const [lostData, foundData, sightingData] = await Promise.all([
+        getReportsByIdsList('lost', lostIds),
+        getReportsByIdsList('found', foundIds),
+        getReportsByIdsList('sighting', sightingIds),
+      ]);
+
+      setMyLostList(lostData);
+      setMyFoundList(foundData);
+      setMySightingsList(sightingData);
+    } catch (e) {
+      console.error('Error cargando reportes del dispositivo:', e);
+    } finally {
+      setIsLoading(false);
     }
+  };
+
+  useEffect(() => {
+    loadReports();
+  }, []);
+
+  const handleMarkReunited = async (id: string, name: string) => {
+    if (confirm(`¿Confirmás que ${name} ya fue reunida con su familia? ❤️`)) {
+      const success = await markReportAsReunitedInDb(id);
+      if (success) {
+        setMyLostList((prev) =>
+          prev.map((r) => (r.id === id ? { ...r, status: 'REUNITED' } : r))
+        );
+        confetti({
+          particleCount: 120,
+          spread: 70,
+          origin: { y: 0.6 },
+        });
+      } else {
+        alert('Hubo un inconveniente al actualizar el estado. Por favor reintentá.');
+      }
+    }
+  };
+
+  const handleLinkManualId = (e: React.FormEvent) => {
+    e.preventDefault();
+    const idToLink = linkInputId.trim();
+    if (!idToLink) return;
+
+    saveCreatedReportId('lost', idToLink);
+    saveCreatedReportId('found', idToLink);
+    setLinkMessage('¡Publicación vinculada con éxito a este dispositivo!');
+    setLinkInputId('');
+    loadReports();
   };
 
   return (
@@ -69,18 +98,22 @@ export default function MisReportesPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-200 dark:border-zinc-800 pb-5">
         <div>
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-orange-100 dark:bg-orange-950/60 text-orange-700 dark:text-orange-300 text-xs font-bold uppercase mb-1">
+            <Smartphone className="w-3.5 h-3.5" />
+            Vinculado a este Celular / Dispositivo
+          </div>
           <h1 className="text-2xl sm:text-3xl font-black text-zinc-900 dark:text-white flex items-center gap-2">
             <FileText className="w-7 h-7 text-orange-500" />
-            Panel de Mis Reportes
+            Panel de Mis Publicaciones
           </h1>
           <p className="text-sm text-zinc-500">
-            Administrá tus publicaciones activas, confirmá reunificaciones y revisá coincidencias.
+            Gestioná únicamente las alertas creadas desde tu equipo, confirmá cuando regresaron a casa e imprimí sus carteles.
           </p>
         </div>
 
         <Link
           href="/publicar/perdida"
-          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-md transition-all self-start sm:self-auto"
+          className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-red-600 hover:bg-red-700 text-white font-extrabold text-xs shadow-md transition-all self-start sm:self-auto"
         >
           <PlusCircle className="w-4 h-4" />
           Nueva Publicación
@@ -88,124 +121,295 @@ export default function MisReportesPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex items-center gap-2 border-b border-zinc-200 dark:border-zinc-800 pb-2">
+      <div className="flex items-center gap-2 border-b border-zinc-200 dark:border-zinc-800 pb-2 overflow-x-auto no-scrollbar">
         <button
           onClick={() => setSelectedTab('lost')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-colors ${
+          className={`px-4 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap transition-colors cursor-pointer ${
             selectedTab === 'lost'
               ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900'
               : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800'
           }`}
         >
-          Mascotas Perdidas (1)
+          Mascotas Perdidas ({myLostList.length})
         </button>
         <button
           onClick={() => setSelectedTab('found')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-colors ${
+          className={`px-4 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap transition-colors cursor-pointer ${
             selectedTab === 'found'
               ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900'
               : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800'
           }`}
         >
-          Mascotas Encontradas (0)
+          Mascotas Encontradas ({myFoundList.length})
         </button>
         <button
           onClick={() => setSelectedTab('sightings')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-colors ${
+          className={`px-4 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap transition-colors cursor-pointer ${
             selectedTab === 'sightings'
               ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900'
               : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800'
           }`}
         >
-          Avistamientos Aportados (1)
+          Avistamientos Aportados ({mySightingsList.length})
         </button>
       </div>
 
-      {/* Listado de Reportes Propios */}
-      <div className="space-y-6">
-        {selectedTab === 'lost' && (
-          <div className="space-y-6">
-            {myLostReports.map((rep) => {
-              const isReunited = rep.status === 'REUNITED';
-              return (
-                <div
-                  key={rep.id}
-                  className="p-5 rounded-3xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm space-y-4"
-                >
-                  <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-                    <div className="flex items-center gap-4">
-                      <div className="w-20 h-20 rounded-2xl overflow-hidden shrink-0 border border-zinc-200">
-                        <img
-                          src={rep.pet?.photos[0]}
-                          alt={rep.pet?.name || ''}
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <StatusBadge status={rep.status} />
-                          <span className="text-xs text-zinc-500">
-                            Publicado {rep.last_seen_date.slice(0, 10)}
-                          </span>
+      {isLoading ? (
+        <div className="p-12 text-center text-zinc-500 space-y-2">
+          <div className="w-8 h-8 border-3 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+          <p className="text-xs font-semibold">Cargando tus publicaciones...</p>
+        </div>
+      ) : (
+        <div className="space-y-6">
+          {/* TAB 1: PERDIDAS */}
+          {selectedTab === 'lost' && (
+            myLostList.length === 0 ? (
+              <div className="p-8 sm:p-12 text-center rounded-3xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 space-y-4">
+                <div className="w-16 h-16 rounded-full bg-rose-50 dark:bg-rose-950/40 text-rose-500 flex items-center justify-center mx-auto text-2xl">
+                  🐕
+                </div>
+                <h3 className="text-lg font-bold text-zinc-900 dark:text-white">
+                  No tenés publicaciones de mascotas perdidas creadas en este celular
+                </h3>
+                <p className="text-xs text-zinc-500 max-w-md mx-auto leading-relaxed">
+                  Cuando crees una publicación desde este equipo, aparecerá acá automáticamente para que puedas gestionarla.
+                </p>
+                <div className="pt-2">
+                  <Link
+                    href="/publicar/perdida"
+                    className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-red-600 hover:bg-red-700 text-white font-extrabold text-xs shadow-md"
+                  >
+                    <PlusCircle className="w-4 h-4" />
+                    Publicar Mascota Perdida
+                  </Link>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {myLostList.map((rep) => {
+                  const isReunited = rep.status === 'REUNITED';
+                  const pet = rep.pet;
+                  const petName = pet?.name || 'Mascota perdida';
+                  const photo = pet?.photos?.[0] || 'https://images.unsplash.com/photo-1543466835-00a7907e9de1';
+
+                  return (
+                    <div
+                      key={rep.id}
+                      className="p-5 rounded-3xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm space-y-4"
+                    >
+                      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+                        <div className="flex items-center gap-4">
+                          <div className="w-20 h-20 rounded-2xl overflow-hidden shrink-0 border border-zinc-200 dark:border-zinc-800 bg-zinc-100 dark:bg-zinc-800">
+                            <img
+                              src={photo}
+                              alt={petName}
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                              <StatusBadge status={rep.status} />
+                              <span className="text-xs text-zinc-500">
+                                {formatTimeAgo(rep.created_at || rep.last_seen_date)}
+                              </span>
+                            </div>
+                            <h3 className="text-xl font-bold text-zinc-900 dark:text-white">
+                              {petName}
+                            </h3>
+                            <p className="text-xs text-zinc-500 flex items-center gap-1">
+                              <MapPin className="w-3.5 h-3.5 text-orange-500" />
+                              {rep.approximate_address}
+                            </p>
+                          </div>
                         </div>
-                        <h3 className="text-xl font-bold text-zinc-900 dark:text-white">
-                          {rep.pet?.name}
-                        </h3>
-                        <p className="text-xs text-zinc-500 flex items-center gap-1">
-                          <MapPin className="w-3.5 h-3.5" />
-                          {rep.approximate_address}
-                        </p>
+
+                        {/* Acciones del Dueño */}
+                        <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+                          {!isReunited ? (
+                            <button
+                              onClick={() => handleMarkReunited(rep.id, petName)}
+                              className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs shadow-md shadow-emerald-600/20 flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer"
+                            >
+                              <CheckCircle2 className="w-4 h-4" />
+                              ¡YA LA ENCONTRÉ! REUNIDA ❤️
+                            </button>
+                          ) : (
+                            <span className="px-4 py-2 rounded-xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 font-bold text-xs">
+                              ❤️ Caso Exitoso Cerrado
+                            </span>
+                          )}
+
+                          <Link
+                            href={`/mascotas-perdidas/${rep.id}`}
+                            className="px-4 py-2.5 rounded-xl bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 font-semibold text-xs transition-colors"
+                          >
+                            Ver Publicación
+                          </Link>
+                        </div>
                       </div>
                     </div>
+                  );
+                })}
+              </div>
+            )
+          )}
 
-                    {/* Acciones del Dueño */}
-                    <div className="flex flex-wrap gap-2 w-full sm:w-auto">
-                      {!isReunited ? (
-                        <button
-                          onClick={() => handleMarkReunited(rep.id, rep.pet?.name || 'tu mascota')}
-                          className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md shadow-emerald-600/20 flex items-center gap-1.5 transition-all active:scale-95"
-                        >
-                          <CheckCircle2 className="w-4 h-4" />
-                          ¡YA LA ENCONTRÉ! REUNIDA ❤️
-                        </button>
-                      ) : (
-                        <span className="px-4 py-2 rounded-xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 font-bold text-xs">
-                          ❤️ Caso Exitoso Cerrado
-                        </span>
-                      )}
+          {/* TAB 2: ENCONTRADAS */}
+          {selectedTab === 'found' && (
+            myFoundList.length === 0 ? (
+              <div className="p-8 sm:p-12 text-center rounded-3xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 space-y-4">
+                <div className="w-16 h-16 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-500 flex items-center justify-center mx-auto text-2xl">
+                  💚
+                </div>
+                <h3 className="text-lg font-bold text-zinc-900 dark:text-white">
+                  No tenés reportes de animales encontrados en este equipo
+                </h3>
+                <p className="text-xs text-zinc-500 max-w-md mx-auto leading-relaxed">
+                  Si tenés un animal en tránsito en tu casa, podés publicarlo para que su familia lo ubique.
+                </p>
+                <div className="pt-2">
+                  <Link
+                    href="/publicar/encontrada"
+                    className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs shadow-md"
+                  >
+                    <PlusCircle className="w-4 h-4" />
+                    Publicar Animal Encontrado
+                  </Link>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {myFoundList.map((rep) => {
+                  const photo = rep.pet?.photos?.[0] || 'https://images.unsplash.com/photo-1543466835-00a7907e9de1';
+                  return (
+                    <div
+                      key={rep.id}
+                      className="p-5 rounded-3xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between"
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="w-20 h-20 rounded-2xl overflow-hidden shrink-0 border border-zinc-200 dark:border-zinc-800 bg-zinc-100">
+                          <img src={photo} alt="Encontrado" className="w-full h-full object-cover" />
+                        </div>
+                        <div className="space-y-1">
+                          <span className="px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 text-[11px] font-bold">
+                            🟢 Encontrado
+                          </span>
+                          <h3 className="text-base font-bold text-zinc-900 dark:text-white">
+                            {rep.approximate_address}
+                          </h3>
+                          <p className="text-xs text-zinc-500">
+                            {rep.is_holding ? '🏠 En resguardo en tu casa' : '📍 Visto en la vía pública'} • {formatTimeAgo(rep.found_date)}
+                          </p>
+                        </div>
+                      </div>
 
                       <Link
                         href={`/mascotas-perdidas/${rep.id}`}
-                        className="px-4 py-2.5 rounded-xl bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 font-semibold text-xs transition-colors"
+                        className="px-4 py-2.5 rounded-xl bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 font-semibold text-xs"
                       >
                         Ver Publicación
                       </Link>
                     </div>
-                  </div>
+                  );
+                })}
+              </div>
+            )
+          )}
 
-                  {/* Sugerencia de Coincidencia (Matching Engine) */}
-                  {!isReunited && (
-                    <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/60 space-y-2">
-                      <div className="flex items-center gap-2 text-xs font-bold text-amber-800 dark:text-amber-300">
-                        <Sparkles className="w-4 h-4 text-amber-500" />
-                        <span>POSIBLE COINCIDENCIA DETECTADA (85% de similitud)</span>
-                      </div>
-                      <p className="text-xs text-zinc-600 dark:text-zinc-400">
-                        Un vecino reportó haber encontrado un perro macho mestizo mediano en <strong>Av. Fontana y San Martín (a 800 metros)</strong>.
+          {/* TAB 3: AVISTAMIENTOS */}
+          {selectedTab === 'sightings' && (
+            mySightingsList.length === 0 ? (
+              <div className="p-8 sm:p-12 text-center rounded-3xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 space-y-4">
+                <div className="w-16 h-16 rounded-full bg-amber-50 dark:bg-amber-950/40 text-amber-500 flex items-center justify-center mx-auto text-2xl">
+                  🟡
+                </div>
+                <h3 className="text-lg font-bold text-zinc-900 dark:text-white">
+                  No registraste avistamientos aún
+                </h3>
+                <p className="text-xs text-zinc-500 max-w-md mx-auto leading-relaxed">
+                  Si viste a un perro o gato deambulando en una esquina de Trelew, podés aportar el dato en 30 segundos.
+                </p>
+                <div className="pt-2">
+                  <Link
+                    href="/publicar/avistamiento"
+                    className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-amber-400 hover:bg-amber-500 text-zinc-950 font-black text-xs shadow-md border-2 border-amber-500"
+                  >
+                    <Eye className="w-4 h-4" />
+                    Reportar Avistamiento
+                  </Link>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {mySightingsList.map((s) => (
+                  <div
+                    key={s.id}
+                    className="p-5 rounded-3xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between"
+                  >
+                    <div className="space-y-1">
+                      <span className="px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 text-[11px] font-bold">
+                        🟡 Avistamiento
+                      </span>
+                      <h3 className="text-base font-bold text-zinc-900 dark:text-white">
+                        {s.approximate_address}
+                      </h3>
+                      <p className="text-xs text-zinc-500">
+                        {s.description}
                       </p>
+                      <p className="text-[11px] text-zinc-400">
+                        Registrado {formatTimeAgo(s.sighting_date)}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-2">
                       <Link
-                        href="/mascotas-perdidas/44444444-4444-4444-4444-444444444444"
-                        className="inline-block text-xs font-bold text-amber-700 dark:text-amber-400 hover:underline"
+                        href={`/mascota-avistada/${s.id}`}
+                        className="px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-zinc-950 font-bold text-xs whitespace-nowrap shadow-sm transition-all"
                       >
-                        Ver reporte de la mascota encontrada →
+                        Ver Ficha
+                      </Link>
+                      <Link
+                        href="/mapa"
+                        className="px-4 py-2.5 rounded-xl bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 font-semibold text-xs whitespace-nowrap"
+                      >
+                        En Mapa
                       </Link>
                     </div>
-                  )}
+                  </div>
+                ))}
+              </div>
+            )
+          )}
+        </div>
+      )}
 
-                </div>
-              );
-            })}
-          </div>
+      {/* Vincular publicación manual por código/ID si se publicó desde otro equipo */}
+      <div className="p-5 rounded-3xl bg-zinc-100/70 dark:bg-zinc-900/70 border border-zinc-200 dark:border-zinc-800 space-y-3">
+        <h4 className="text-xs font-black uppercase text-zinc-600 dark:text-zinc-400 tracking-wider">
+          ¿Publicaste desde otra computadora o celular?
+        </h4>
+        <p className="text-xs text-zinc-500 leading-relaxed">
+          Podés pegar el ID o enlace de tu publicación para sincronizarla y administrarla también desde este dispositivo.
+        </p>
+
+        <form onSubmit={handleLinkManualId} className="flex flex-col sm:flex-row gap-2 max-w-lg">
+          <input
+            type="text"
+            placeholder="Pegá el ID o enlace de la publicación..."
+            value={linkInputId}
+            onChange={(e) => setLinkInputId(e.target.value)}
+            className="flex-1 px-3.5 py-2.5 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-xs text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-orange-500"
+          />
+          <button
+            type="submit"
+            className="px-4 py-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 dark:bg-white dark:hover:bg-zinc-200 text-white dark:text-zinc-900 font-bold text-xs shrink-0 cursor-pointer"
+          >
+            Vincular
+          </button>
+        </form>
+
+        {linkMessage && (
+          <p className="text-xs text-emerald-600 font-bold">{linkMessage}</p>
         )}
       </div>
 

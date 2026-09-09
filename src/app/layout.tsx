@@ -3,6 +3,7 @@ import './globals.css';
 import { Navbar } from '@/components/layout/Navbar';
 import { MobileBottomNav } from '@/components/layout/MobileBottomNav';
 import { Footer } from '@/components/layout/Footer';
+import { InteractiveTour } from '@/components/layout/InteractiveTour';
 
 export const metadata: Metadata = {
   title: 'Mascotas Trelew — Red Comunitaria de Mascotas Perdidas y Encontradas',
@@ -44,6 +45,7 @@ export default function RootLayout({
         <main className="flex-1 w-full pb-20 md:pb-0">{children}</main>
         <Footer />
         <MobileBottomNav />
+        <InteractiveTour />
       </body>
     </html>
   );
