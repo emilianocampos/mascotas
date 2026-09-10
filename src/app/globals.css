@@ -60,3 +60,22 @@ body {
     margin: 1cm;
   }
 }
+
+/* Estilos optimizados para Leaflet Popups en celulares y PC */
+.custom-leaflet-popup .leaflet-popup-content-wrapper {
+  padding: 6px;
+  border-radius: 16px;
+  box-shadow: 0 12px 30px -4px rgba(0, 0, 0, 0.25), 0 4px 12px -2px rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+.custom-leaflet-popup .leaflet-popup-content {
+  margin: 6px 8px;
+  line-height: 1.4;
+}
+.custom-leaflet-popup .leaflet-popup-close-button {
+  top: 10px;
+  right: 10px;
+  color: #71717a;
+  padding: 4px;
+}
+

@@ -71,6 +71,8 @@ export default function InteractiveMap({
     };
   }, []);
 
+  const markerInstancesRef = useRef<Map<string, any>>(new Map());
+
   // Actualizar marcadores en el mapa
   useEffect(() => {
     async function updateMarkers() {
@@ -78,6 +80,7 @@ export default function InteractiveMap({
       const L = (await import('leaflet')).default;
 
       markersLayerRef.current.clearLayers();
+      markerInstancesRef.current.clear();
 
       const filtered = markers.filter(
         (m) => activeFilter === 'all' || m.marker_type === activeFilter
@@ -97,31 +100,30 @@ export default function InteractiveMap({
           badgeText = 'AVISTAMIENTO';
         }
 
-        const isSelected = selectedMarkerId === m.marker_id;
         const emoji = getSpeciesEmoji(m.species);
 
         const customHtml = `
-          <div style="width: 30px; height: 38px; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; cursor: pointer;">
-            <div class="w-7 h-7 rounded-xl ${colorBg} border-2 ${borderColor} shadow-md flex items-center justify-center text-white text-sm transition-transform duration-200 ${
-              isSelected ? 'scale-125 ring-3 ring-orange-400' : 'hover:scale-110'
-            }">
+          <div style="width: 32px; height: 40px; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; cursor: pointer;">
+            <div class="w-8 h-8 rounded-xl ${colorBg} border-2 border-white shadow-lg flex items-center justify-center text-white text-base transition-transform duration-200 hover:scale-110 active:scale-95">
               <span>${emoji}</span>
             </div>
-            <div class="w-2.5 h-2.5 border-r-2 border-b-2 ${borderColor} transform rotate-45 -mt-1 ${colorBg}"></div>
+            <div class="w-2.5 h-2.5 border-r-2 border-b-2 border-white transform rotate-45 -mt-1 ${colorBg}"></div>
           </div>
         `;
 
         const icon = L.divIcon({
           html: customHtml,
           className: 'custom-map-marker',
-          iconSize: [30, 38],
-          iconAnchor: [15, 38],
-          popupAnchor: [0, -38],
+          iconSize: [32, 40],
+          iconAnchor: [16, 40],
+          popupAnchor: [0, -36],
         });
 
         const marker = L.marker([m.latitude, m.longitude], { icon }).addTo(
           markersLayerRef.current
         );
+
+        markerInstancesRef.current.set(m.marker_id, marker);
 
         marker.on('click', () => {
           if (onMarkerSelect) onMarkerSelect(m);
@@ -138,10 +140,10 @@ export default function InteractiveMap({
             : `/mascotas-perdidas/${m.marker_id}`;
 
         const popupContent = `
-          <div style="min-width: 230px; max-width: 260px; font-family: system-ui, -apple-system, sans-serif; padding: 2px;">
+          <div style="min-width: 210px; max-width: 250px; font-family: system-ui, -apple-system, sans-serif; padding: 2px;">
             ${
               m.photo_url
-                ? `<div style="position: relative; width: 100%; height: 130px; border-radius: 12px; overflow: hidden; margin-bottom: 8px; background-color: #f4f4f5;">
+                ? `<div style="position: relative; width: 100%; height: 125px; border-radius: 12px; overflow: hidden; margin-bottom: 8px; background-color: #f4f4f5;">
                     <img src="${m.photo_url}" alt="${m.title}" style="width: 100%; height: 100%; object-fit: cover;" />
                     <span style="position: absolute; top: 6px; left: 6px; font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 6px; color: white; background: rgba(0,0,0,0.65); backdrop-filter: blur(4px);">
                       ${badgeText}
@@ -171,12 +173,32 @@ export default function InteractiveMap({
             </div>
           </div>
         `;
-        marker.bindPopup(popupContent, { maxWidth: 280, className: 'custom-leaflet-popup' });
+        marker.bindPopup(popupContent, { 
+          maxWidth: 270, 
+          className: 'custom-leaflet-popup',
+          autoPan: true,
+          autoPanPadding: [20, 20]
+        });
       });
+
+      if (selectedMarkerId && markerInstancesRef.current.has(selectedMarkerId)) {
+        const selectedMarker = markerInstancesRef.current.get(selectedMarkerId);
+        selectedMarker.openPopup();
+      }
     }
 
     updateMarkers();
-  }, [markers, activeFilter, selectedMarkerId, onMarkerSelect]);
+  }, [markers, activeFilter, onMarkerSelect]);
+
+  // Si selectedMarkerId cambia externamente, abrir popup y centrar
+  useEffect(() => {
+    if (!selectedMarkerId || !leafletMapRef.current || !markerInstancesRef.current) return;
+    const marker = markerInstancesRef.current.get(selectedMarkerId);
+    if (marker) {
+      marker.openPopup();
+      leafletMapRef.current.panTo(marker.getLatLng(), { animate: true });
+    }
+  }, [selectedMarkerId]);
 
   // Centrar en ubicación del usuario (GPS con fallback inteligente)
   const handleLocateMe = () => {

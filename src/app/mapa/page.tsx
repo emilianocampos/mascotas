@@ -138,7 +138,6 @@ export default function MapaPage() {
             selectedMarkerId={selectedMarkerId}
             onMarkerSelect={(m) => {
               handleMarkerSelect(m);
-              setMobileView('list');
             }}
             height="520px"
           />
@@ -163,7 +162,10 @@ export default function MapaPage() {
               lostReports.map((report) => (
                 <div
                   key={report.id}
-                  onClick={() => setSelectedMarkerId(report.id)}
+                  onClick={() => {
+                    setSelectedMarkerId(report.id);
+                    setMobileView('map');
+                  }}
                   className={`cursor-pointer transition-all ${
                     selectedMarkerId === report.id ? 'ring-2 ring-orange-500 rounded-2xl' : ''
                   }`}
