@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { getNearbyLostReports, getNearbyFoundReports, getMapMarkers } from '@/services/reports.service';
+import { createClient as createBrowserClient } from '@/lib/supabase/client';
 import { LostReport, FoundReport, MapMarkerItem, PetSpecies } from '@/types';
 import { PetReportCard } from '@/components/cards/PetReportCard';
 import { 
@@ -24,7 +25,7 @@ const InteractiveMap = dynamic(
     loading: () => (
       <div className="w-full h-[600px] bg-zinc-100 dark:bg-zinc-900 rounded-2xl flex items-center justify-center text-zinc-400 animate-pulse">
         <Compass className="w-8 h-8 animate-spin text-orange-500 mr-2" />
-        <span>Cargando mapa interactivo...</span>
+        <span>Cargando mapa interactivo en tiempo real...</span>
       </div>
     ),
   }
@@ -48,6 +49,25 @@ export default function MapaPage() {
       setLostReports(lostData);
     }
     loadData();
+
+    // Suscripción en Tiempo Real con Supabase Realtime
+    const supabase = createBrowserClient();
+    const channel = supabase
+      .channel('map-live-sync')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'lost_reports' }, () => {
+        loadData();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'found_reports' }, () => {
+        loadData();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'sightings' }, () => {
+        loadData();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [speciesFilter, radiusFilter]);
 
   const handleMarkerSelect = (marker: MapMarkerItem) => {

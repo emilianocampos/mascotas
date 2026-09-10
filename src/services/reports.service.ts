@@ -8,6 +8,65 @@ import { SightingInput } from '@/lib/validations/sighting.schema';
  * SERVICIO DIRECTO DE BASE DE DATOS SUPABASE + POSTGIS (SIN MOCKS)
  */
 
+/**
+ * Decodifica cualquier formato de coordenadas de PostGIS (EWKB, WKT, GeoJSON, objeto lat/lng)
+ */
+export function parseCoordinates(loc: any): { latitude: number; longitude: number } {
+  if (!loc) return { latitude: -43.24895, longitude: -65.30505 };
+
+  // Si ya es un objeto { latitude, longitude } o { lat, lng }
+  if (typeof loc === 'object' && loc !== null) {
+    if (typeof loc.latitude === 'number' && typeof loc.longitude === 'number') {
+      return { latitude: loc.latitude, longitude: loc.longitude };
+    }
+    if (typeof loc.lat === 'number' && typeof loc.lng === 'number') {
+      return { latitude: loc.lat, longitude: loc.lng };
+    }
+    // GeoJSON { type: 'Point', coordinates: [lng, lat] }
+    if (Array.isArray(loc.coordinates) && loc.coordinates.length >= 2) {
+      return { latitude: Number(loc.coordinates[1]), longitude: Number(loc.coordinates[0]) };
+    }
+  }
+
+  // Si es un string WKT (Ej: "POINT(-65.30505 -43.24895)")
+  if (typeof loc === 'string') {
+    const wktMatch = loc.match(/POINT\s*\(\s*([-\d.]+)\s+([-\d.]+)\s*\)/i);
+    if (wktMatch) {
+      const lng = parseFloat(wktMatch[1]);
+      const lat = parseFloat(wktMatch[2]);
+      if (!isNaN(lat) && !isNaN(lng)) {
+        return { latitude: lat, longitude: lng };
+      }
+    }
+
+    // Si es un string EWKB Hexadecimal (Ej: "0101000020E6100000...")
+    try {
+      const cleanHex = loc.trim().replace(/^\\x/, '');
+      if (cleanHex.length >= 32) {
+        const bytes = new Uint8Array(cleanHex.match(/.{1,2}/g)!.map((b) => parseInt(b, 16)));
+        const view = new DataView(bytes.buffer);
+        const isLittleEndian = bytes[0] === 1;
+        let offset = 1;
+        const geomType = view.getUint32(offset, isLittleEndian);
+        offset += 4;
+        if ((geomType & 0x20000000) !== 0) {
+          offset += 4; // saltar SRID
+        }
+        const lng = view.getFloat64(offset, isLittleEndian);
+        offset += 8;
+        const lat = view.getFloat64(offset, isLittleEndian);
+        if (!isNaN(lat) && !isNaN(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+          return { latitude: lat, longitude: lng };
+        }
+      }
+    } catch (e) {
+      // Fallback
+    }
+  }
+
+  return { latitude: -43.24895, longitude: -65.30505 };
+}
+
 // 1. Subir fotografía a Supabase Storage Bucket 'pet-photos' o 'sighting-photos'
 export async function uploadPetPhoto(file: File, bucketName: 'pet-photos' | 'sighting-photos' = 'pet-photos'): Promise<string> {
   const supabase = createBrowserClient();
@@ -58,7 +117,7 @@ export async function getNearbyLostReports(
       pet_id: item.pet_id,
       status: item.status,
       last_seen_date: item.last_seen_date,
-      last_seen_location: { latitude: item.latitude, longitude: item.longitude },
+      last_seen_location: parseCoordinates(item.last_seen_location || { latitude: item.latitude, longitude: item.longitude }),
       approximate_address: item.approximate_address,
       description: '',
       contact_phone_public: true,
@@ -87,6 +146,10 @@ export async function getNearbyLostReports(
     .eq('status', 'ACTIVE')
     .order('created_at', { ascending: false });
 
+  if (species && species !== 'all') {
+    // Si se filtra por especie se puede filtrar en memoria
+  }
+
   const { data, error } = await query;
   if (error) {
     console.error('Error al consultar lost_reports en Supabase:', error);
@@ -95,7 +158,7 @@ export async function getNearbyLostReports(
 
   return (data || []).map((row: any) => ({
     ...row,
-    last_seen_location: row.last_seen_location || { latitude: lat, longitude: lng },
+    last_seen_location: parseCoordinates(row.last_seen_location),
   })) as LostReport[];
 }
 
@@ -122,7 +185,7 @@ export async function getNearbyFoundReports(
       pet_id: item.pet_id,
       status: item.status,
       found_date: item.found_date,
-      found_location: { latitude: item.latitude, longitude: item.longitude },
+      found_location: parseCoordinates(item.found_location || { latitude: item.latitude, longitude: item.longitude }),
       approximate_address: item.approximate_address,
       is_holding: item.is_holding,
       description: '',
@@ -154,7 +217,10 @@ export async function getNearbyFoundReports(
     return [];
   }
 
-  return (data || []) as FoundReport[];
+  return (data || []).map((row: any) => ({
+    ...row,
+    found_location: parseCoordinates(row.found_location),
+  })) as FoundReport[];
 }
 
 export type UnifiedReport = 
@@ -173,7 +239,10 @@ export async function getLostReportById(id: string): Promise<LostReport | null> 
   if (error || !data) {
     return null;
   }
-  return data as LostReport;
+  return {
+    ...data,
+    last_seen_location: parseCoordinates(data.last_seen_location),
+  } as LostReport;
 }
 
 // 4b. Obtener Ficha de Mascota Encontrada por ID
@@ -188,7 +257,10 @@ export async function getFoundReportById(id: string): Promise<FoundReport | null
   if (error || !data) {
     return null;
   }
-  return data as FoundReport;
+  return {
+    ...data,
+    found_location: parseCoordinates(data.found_location),
+  } as FoundReport;
 }
 
 // 4c. Obtener Ficha Unificada (sea Perdida, Encontrada o Avistamiento)
@@ -212,11 +284,15 @@ export async function getUnifiedReportById(id: string): Promise<UnifiedReport | 
 
   if (!sError && sighting) {
     if (sighting.lost_report) {
-      return { ...sighting.lost_report, report_type: 'lost' };
+      return { 
+        ...sighting.lost_report, 
+        last_seen_location: parseCoordinates(sighting.lost_report.last_seen_location),
+        report_type: 'lost' 
+      };
     }
 
     // Avistamiento general no vinculado a un reporte específico
-    const loc = sighting.location || { latitude: -43.24895, longitude: -65.30505 };
+    const loc = parseCoordinates(sighting.location);
     return {
       id: sighting.id,
       user_id: sighting.user_id || '',
@@ -261,7 +337,10 @@ export async function getSightingsForReport(lostReportId: string): Promise<Sight
     console.error('Error al consultar sightings en Supabase:', error);
     return [];
   }
-  return (data || []) as Sighting[];
+  return (data || []).map((row: any) => ({
+    ...row,
+    location: parseCoordinates(row.location),
+  })) as Sighting[];
 }
 
 // 6. Obtener Marcadores Unificados para el Mapa (Pines 🔴 🟢 🟡)
@@ -280,46 +359,67 @@ export async function getMapMarkers(
     p_max_lng: maxLng,
   });
 
-  if (!rpcError && rpcData) {
-    return rpcData as MapMarkerItem[];
+  if (!rpcError && rpcData && Array.isArray(rpcData) && rpcData.length > 0) {
+    return (rpcData as any[]).map((item) => {
+      const coords = parseCoordinates(item.location || { latitude: item.latitude, longitude: item.longitude });
+      return {
+        ...item,
+        latitude: coords.latitude,
+        longitude: coords.longitude,
+      };
+    }) as MapMarkerItem[];
   }
 
-  // Fallback: recopilar directamente de las 3 tablas en Supabase
+  // Recopilar directamente de las 3 tablas en Supabase con selección completa
   const [lostRes, foundRes, sightingRes] = await Promise.all([
-    supabase.from('lost_reports').select('id, last_seen_date, last_seen_location, pet:pets(name, species, photos)').eq('status', 'ACTIVE'),
-    supabase.from('found_reports').select('id, found_date, found_location, pet:pets(name, species, photos)').eq('status', 'ACTIVE'),
-    supabase.from('sightings').select('id, sighting_date, location, photo_url, lost_report_id, lost_report:lost_reports(id, pet:pets(name, species, photos))'),
+    supabase
+      .from('lost_reports')
+      .select('id, last_seen_date, last_seen_location, approximate_address, status, pet:pets(name, species, photos)')
+      .eq('status', 'ACTIVE')
+      .order('created_at', { ascending: false }),
+    supabase
+      .from('found_reports')
+      .select('id, found_date, found_location, approximate_address, status, pet:pets(name, species, photos)')
+      .eq('status', 'ACTIVE')
+      .order('created_at', { ascending: false }),
+    supabase
+      .from('sightings')
+      .select('id, sighting_date, location, approximate_address, photo_url, status, lost_report_id, lost_report:lost_reports(id, pet:pets(name, species, photos))')
+      .order('created_at', { ascending: false }),
   ]);
 
   const markers: MapMarkerItem[] = [];
 
   (lostRes.data || []).forEach((row: any) => {
+    const coords = parseCoordinates(row.last_seen_location);
     markers.push({
       marker_id: row.id,
       marker_type: 'lost',
       title: `${row.pet?.name || 'Mascota'} (Perdida)`,
       species: row.pet?.species || 'dog',
       photo_url: row.pet?.photos?.[0] || null,
-      latitude: row.last_seen_location?.latitude || -43.24895,
-      longitude: row.last_seen_location?.longitude || -65.30505,
+      latitude: coords.latitude,
+      longitude: coords.longitude,
       report_date: row.last_seen_date,
     });
   });
 
   (foundRes.data || []).forEach((row: any) => {
+    const coords = parseCoordinates(row.found_location);
     markers.push({
       marker_id: row.id,
       marker_type: 'found',
       title: 'Mascota Encontrada',
       species: row.pet?.species || 'dog',
       photo_url: row.pet?.photos?.[0] || null,
-      latitude: row.found_location?.latitude || -43.24895,
-      longitude: row.found_location?.longitude || -65.30505,
+      latitude: coords.latitude,
+      longitude: coords.longitude,
       report_date: row.found_date,
     });
   });
 
   (sightingRes.data || []).forEach((row: any) => {
+    const coords = parseCoordinates(row.location);
     const petName = row.lost_report?.pet?.name;
     markers.push({
       marker_id: row.id,
@@ -327,8 +427,8 @@ export async function getMapMarkers(
       title: petName ? `Avistamiento de ${petName}` : 'Mascota Avistada',
       species: row.lost_report?.pet?.species || 'dog',
       photo_url: row.photo_url || row.lost_report?.pet?.photos?.[0] || null,
-      latitude: row.location?.latitude || -43.24895,
-      longitude: row.location?.longitude || -65.30505,
+      latitude: coords.latitude,
+      longitude: coords.longitude,
       report_date: row.sighting_date,
     });
   });
@@ -679,3 +779,54 @@ export async function getAdminStats(): Promise<AdminDashboardStats> {
     },
   };
 }
+
+// 12. Eliminar todas las publicaciones (Función Super Admin para vaciar la base de datos)
+export async function deleteAllReportsFromDb(): Promise<{ success: boolean; message: string }> {
+  const supabase = createBrowserClient();
+  try {
+    // 1. Intentar llamar a la función RPC de Supabase con SECURITY DEFINER
+    const { data: rpcResult, error: rpcError } = await supabase.rpc('delete_all_reports');
+    
+    if (!rpcError && rpcResult) {
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('mascotas_my_lost_reports');
+        localStorage.removeItem('mascotas_my_found_reports');
+        localStorage.removeItem('mascotas_my_sightings');
+      }
+      return { 
+        success: true, 
+        message: 'Todas las publicaciones y mascotas fueron eliminadas de la base de datos correctamente.' 
+      };
+    }
+
+    // 2. Si la función RPC aún no está creada en Supabase, ejecutar cascada de eliminación directa
+    // Tablas dependientes
+    await supabase.from('matches').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+    await supabase.from('notifications').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+    await supabase.from('qr_codes').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+    await supabase.from('moderation_reports').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+    
+    // Avistamientos
+    await supabase.from('sightings').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+
+    // Reportes de mascotas perdidas y encontradas
+    await supabase.from('lost_reports').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+    await supabase.from('found_reports').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+
+    // Mascotas
+    await supabase.from('pets').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+
+    // Limpiar almacenamiento del navegador local
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('mascotas_my_lost_reports');
+      localStorage.removeItem('mascotas_my_found_reports');
+      localStorage.removeItem('mascotas_my_sightings');
+    }
+
+    return { success: true, message: 'Todas las publicaciones fueron eliminadas con éxito.' };
+  } catch (error: any) {
+    console.error('Error general al eliminar todas las publicaciones:', error);
+    return { success: false, message: error?.message || 'Error al conectar con la base de datos.' };
+  }
+}
+

@@ -50,19 +50,23 @@ export function Navbar() {
               </div>
             </Link>
 
-            {/* Selector de Ciudad */}
+            {/* Selector de Ciudad (Trelew activa, otras preparadas para futuro) */}
             <div className="hidden sm:flex items-center gap-1 bg-zinc-100 dark:bg-zinc-900 px-2.5 py-1 rounded-full border border-zinc-200 dark:border-zinc-800 text-xs font-semibold text-zinc-700 dark:text-zinc-300">
               <MapPin className="w-3.5 h-3.5 text-orange-500" />
               <select
                 value={selectedCity}
-                onChange={(e) => setSelectedCity(e.target.value)}
-                className="bg-transparent border-none focus:outline-none cursor-pointer pr-1"
+                onChange={(e) => {
+                  if (e.target.value === 'Trelew') {
+                    setSelectedCity('Trelew');
+                  }
+                }}
+                className="bg-transparent border-none focus:outline-none cursor-pointer pr-1 font-semibold text-zinc-800 dark:text-zinc-200"
               >
-                <option value="Trelew">Trelew</option>
-                <option value="Rawson">Rawson</option>
-                <option value="Playa Unión">Playa Unión</option>
-                <option value="Puerto Madryn">Puerto Madryn</option>
-                <option value="Gaiman">Gaiman</option>
+                <option value="Trelew" className="text-zinc-900 dark:text-zinc-100 font-bold">📍 Trelew (Activa)</option>
+                <option value="Rawson" disabled className="text-zinc-400 dark:text-zinc-500">🔒 Rawson (Próximamente)</option>
+                <option value="Playa Unión" disabled className="text-zinc-400 dark:text-zinc-500">🔒 Playa Unión (Próximamente)</option>
+                <option value="Puerto Madryn" disabled className="text-zinc-400 dark:text-zinc-500">🔒 Puerto Madryn (Próximamente)</option>
+                <option value="Gaiman" disabled className="text-zinc-400 dark:text-zinc-500">🔒 Gaiman (Próximamente)</option>
               </select>
             </div>
           </div>
@@ -150,7 +154,9 @@ export function Navbar() {
         <div className="md:hidden border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 px-4 pt-2 pb-6 space-y-2 animate-in slide-in-from-top duration-200">
           <div className="py-2 border-b border-zinc-100 dark:border-zinc-900 flex items-center justify-between">
             <span className="text-xs font-semibold text-zinc-500">Ciudad de búsqueda:</span>
-            <span className="text-xs font-bold text-orange-600 dark:text-orange-400">📍 {selectedCity}</span>
+            <span className="text-xs font-bold text-orange-600 dark:text-orange-400">
+              📍 Trelew <span className="text-[10px] text-zinc-400 font-normal">(Próximamente más ciudades)</span>
+            </span>
           </div>
           {navLinks.map((link) => {
             const Icon = link.icon;

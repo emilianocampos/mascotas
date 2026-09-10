@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { getAdminStats } from '@/services/reports.service';
+import { getAdminStats, deleteAllReportsFromDb } from '@/services/reports.service';
 import { AdminDashboardStats } from '@/types';
 import { 
   ShieldCheck, 
@@ -17,7 +17,10 @@ import {
   CheckCircle2, 
   MapPin, 
   Clock, 
-  Sparkles 
+  Sparkles,
+  Trash2,
+  RefreshCw,
+  X
 } from 'lucide-react';
 
 export default function AdminPage() {
@@ -29,6 +32,9 @@ export default function AdminPage() {
   const [isLoadingLogin, setIsLoadingLogin] = useState(false);
 
   const [stats, setStats] = useState<AdminDashboardStats | null>(null);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteMessage, setDeleteMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   useEffect(() => {
     const isAuth = localStorage.getItem('admin_auth') === 'true';
@@ -63,6 +69,27 @@ export default function AdminPage() {
     setIsAuthenticated(false);
     setUsername('');
     setPassword('');
+    setDeleteMessage(null);
+  };
+
+  const handleDeleteAll = async () => {
+    setIsDeleting(true);
+    setDeleteMessage(null);
+    try {
+      const res = await deleteAllReportsFromDb();
+      if (res.success) {
+        setDeleteMessage({ type: 'success', text: res.message });
+        const updated = await getAdminStats();
+        setStats(updated);
+      } else {
+        setDeleteMessage({ type: 'error', text: res.message });
+      }
+    } catch (err: any) {
+      setDeleteMessage({ type: 'error', text: err?.message || 'Ocurrió un error al eliminar.' });
+    } finally {
+      setIsDeleting(false);
+      setDeleteModalOpen(false);
+    }
   };
 
   // 1. PANTALLA DE LOGIN (Si NO está autenticado)
@@ -355,6 +382,112 @@ export default function AdminPage() {
         </div>
 
       </div>
+
+      {/* Alerta de feedback de acción */}
+      {deleteMessage && (
+        <div
+          className={`p-4 rounded-2xl text-sm font-semibold flex items-center justify-between border animate-in fade-in duration-200 ${
+            deleteMessage.type === 'success'
+              ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-200 border-emerald-200 dark:border-emerald-800'
+              : 'bg-rose-50 dark:bg-rose-950/40 text-rose-800 dark:text-rose-200 border-rose-200 dark:border-rose-800'
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            {deleteMessage.type === 'success' ? (
+              <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+            ) : (
+              <AlertCircle className="w-5 h-5 text-rose-600 shrink-0" />
+            )}
+            <span>{deleteMessage.text}</span>
+          </div>
+          <button
+            onClick={() => setDeleteMessage(null)}
+            className="p-1 hover:bg-black/5 dark:hover:bg-white/5 rounded-lg text-zinc-500"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
+      {/* Zona de Mantenimiento y Control Global (Super Admin) */}
+      <div className="p-6 rounded-3xl bg-rose-50/70 dark:bg-rose-950/20 border-2 border-dashed border-rose-200 dark:border-rose-900/50 space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <h3 className="font-black text-base text-rose-900 dark:text-rose-200 flex items-center gap-2">
+              <Trash2 className="w-5 h-5 text-rose-600" />
+              Mantenimiento Global: Eliminar Todas las Publicaciones
+            </h3>
+            <p className="text-xs text-rose-700/80 dark:text-rose-400 max-w-2xl">
+              Esta acción vacía por completo la base de datos de mascotas perdidas, encontradas y avistamientos. 
+              Útil para limpiar publicaciones de prueba antes del lanzamiento oficial o realizar un reinicio limpio.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setDeleteModalOpen(true)}
+            className="px-5 py-3 rounded-2xl bg-rose-600 hover:bg-rose-700 active:scale-95 text-white font-extrabold text-xs shadow-lg shadow-rose-600/25 transition-all flex items-center justify-center gap-2 shrink-0 cursor-pointer"
+          >
+            <Trash2 className="w-4 h-4" />
+            ELIMINAR TODAS LAS PUBLICACIONES
+          </button>
+        </div>
+      </div>
+
+      {/* Modal de Confirmación de Seguridad */}
+      {deleteModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-md bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-200 dark:border-zinc-800 p-6 sm:p-8 space-y-6 shadow-2xl animate-in zoom-in-95 duration-200">
+            
+            <div className="w-14 h-14 rounded-2xl bg-rose-100 dark:bg-rose-950/60 text-rose-600 flex items-center justify-center mx-auto">
+              <AlertTriangle className="w-8 h-8" />
+            </div>
+
+            <div className="text-center space-y-2">
+              <h3 className="text-lg sm:text-xl font-black text-zinc-900 dark:text-white">
+                ¿Eliminar todas las publicaciones?
+              </h3>
+              <p className="text-xs text-zinc-500 leading-relaxed">
+                Estás a punto de borrar <strong>todos los reportes de mascotas perdidas, encontradas y avistamientos</strong> de la base de datos. Esta acción es irreversible.
+              </p>
+            </div>
+
+            <div className="p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 text-[11px] text-amber-800 dark:text-amber-300">
+              ⚠️ Se borrarán {stats.total_lost_reports} reportes de perdidas, {stats.total_found_reports} de encontradas y {stats.total_sightings} avistamientos.
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={() => setDeleteModalOpen(false)}
+                className="flex-1 py-3 rounded-xl bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-200 text-xs font-bold transition-colors cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={handleDeleteAll}
+                className="flex-1 py-3 rounded-xl bg-rose-600 hover:bg-rose-700 active:scale-95 text-white text-xs font-extrabold shadow-lg shadow-rose-600/30 transition-all flex items-center justify-center gap-2 cursor-pointer"
+              >
+                {isDeleting ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    <span>Borrando...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4" />
+                    <span>Sí, Eliminar Todo</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
 
     </div>
   );

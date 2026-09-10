@@ -23,6 +23,15 @@ export const metadata: Metadata = {
     locale: 'es_AR',
     siteName: 'Mascotas Trelew',
   },
+  icons: {
+    icon: [
+      { url: '/icon.svg', type: 'image/svg+xml' },
+    ],
+    apple: [
+      { url: '/icon.svg', type: 'image/svg+xml' },
+    ],
+    shortcut: ['/icon.svg'],
+  },
 };
 
 export const viewport: Viewport = {

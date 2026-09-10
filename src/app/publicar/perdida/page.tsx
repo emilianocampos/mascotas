@@ -114,16 +114,23 @@ export default function PublicarPerdidaPage() {
                 alert('¡Enlace copiado al portapapeles!');
               }
             }}
-            className="px-6 py-3.5 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-bold text-sm shadow-md transition-all active:scale-95"
+            className="px-6 py-3.5 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-bold text-sm shadow-md transition-all active:scale-95 cursor-pointer"
           >
-            📢 Compartir en WhatsApp / Facebook
+            📢 Compartir en WhatsApp
+          </button>
+
+          <button
+            onClick={() => router.push('/mapa')}
+            className="px-6 py-3.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm shadow-md transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-2"
+          >
+            🗺️ Ver en el Mapa en Vivo
           </button>
 
           <button
             onClick={() => router.push(`/mascotas-perdidas/${successId}`)}
-            className="px-6 py-3.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-white font-bold text-sm transition-all"
+            className="px-6 py-3.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-white font-bold text-sm transition-all cursor-pointer"
           >
-            Ver Ficha Pública
+            Ver Ficha
           </button>
         </div>
       </div>
