@@ -154,11 +154,16 @@ export default function PetDetailInteractive({ report, sightings }: PetDetailInt
           </div>
         ) : isLost ? (
           <div className="flex flex-wrap items-center justify-between gap-4 p-4 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900">
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <StatusBadge status={report.status} />
               <span className="text-xs font-bold text-rose-700 dark:text-rose-300">
-                Perdido {formatTimeAgo(report.created_at || report.last_seen_date)}
+                Extraviado {formatTimeAgo(report.last_seen_date)}
               </span>
+              {report.created_at && (
+                <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                  • Publicado {formatTimeAgo(report.created_at)}
+                </span>
+              )}
             </div>
 
             <div className="text-xs font-semibold text-zinc-600 dark:text-zinc-300 flex items-center gap-1.5 bg-white/80 dark:bg-zinc-900 px-3 py-1 rounded-full border border-rose-200/60 dark:border-rose-900/50">
@@ -168,18 +173,22 @@ export default function PetDetailInteractive({ report, sightings }: PetDetailInt
           </div>
         ) : (
           <div className="flex flex-wrap items-center justify-between gap-4 p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900">
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <span className="px-2.5 py-1 rounded-full bg-emerald-600 text-white text-xs font-bold uppercase tracking-wider">
                 🟢 Mascota Encontrada
               </span>
               <span className="text-xs font-bold text-emerald-800 dark:text-emerald-300">
                 {report.is_holding ? '🏠 En resguardo temporal' : '📍 Visto en la vía pública'}
               </span>
+              <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400">
+                • Encontrado {formatTimeAgo(report.found_date)}
+              </span>
+              {report.created_at && (
+                <span className="text-xs text-zinc-500">
+                  • Publicado {formatTimeAgo(report.created_at)}
+                </span>
+              )}
             </div>
-
-            <span className="text-xs text-zinc-500">
-              Encontrado {formatTimeAgo(report.created_at || report.found_date)}
-            </span>
           </div>
         )}
 
@@ -302,10 +311,30 @@ export default function PetDetailInteractive({ report, sightings }: PetDetailInt
                 </span>
               </div>
               <div>
-                <span className="text-zinc-500 block uppercase font-bold text-[10px]">{isLost ? 'Fecha de extravío' : 'Fecha de hallazgo'}</span>
+                <span className="text-zinc-500 block uppercase font-bold text-[10px]">Raza</span>
                 <span className="font-extrabold text-zinc-900 dark:text-zinc-100">
+                  {pet?.breed ? capitalizeWords(pet.breed) : 'Mestizo'}
+                </span>
+              </div>
+              <div>
+                <span className="text-zinc-500 block uppercase font-bold text-[10px]">{isLost ? 'Fecha de extravío' : 'Fecha de hallazgo'}</span>
+                <span className="font-extrabold text-zinc-900 dark:text-zinc-100 block">
                   {formatDate(reportDate)}
                 </span>
+                <span className="text-[11px] font-semibold text-rose-600 dark:text-rose-400">
+                  ({formatTimeAgo(reportDate)})
+                </span>
+              </div>
+              <div>
+                <span className="text-zinc-500 block uppercase font-bold text-[10px]">Fecha de publicación</span>
+                <span className="font-extrabold text-zinc-900 dark:text-zinc-100 block">
+                  {report.created_at ? formatDate(report.created_at) : '-'}
+                </span>
+                {report.created_at && (
+                  <span className="text-[11px] font-semibold text-zinc-500">
+                    ({formatTimeAgo(report.created_at)})
+                  </span>
+                )}
               </div>
             </div>
 

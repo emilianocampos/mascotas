@@ -3,7 +3,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
 import { MapMarkerItem } from '@/types';
-import { getSpeciesEmoji, formatTimeAgo } from '@/lib/utils';
+import { getSpeciesEmoji, formatTimeAgo, capitalizeWords } from '@/lib/utils';
 import { Crosshair, Filter, Layers, Navigation } from 'lucide-react';
 
 interface InteractiveMapProps {
@@ -72,6 +72,10 @@ export default function InteractiveMap({
   }, []);
 
   const markerInstancesRef = useRef<Map<string, any>>(new Map());
+  const onMarkerSelectRef = useRef(onMarkerSelect);
+  useEffect(() => {
+    onMarkerSelectRef.current = onMarkerSelect;
+  }, [onMarkerSelect]);
 
   // Actualizar marcadores en el mapa
   useEffect(() => {
@@ -126,7 +130,9 @@ export default function InteractiveMap({
         markerInstancesRef.current.set(m.marker_id, marker);
 
         marker.on('click', () => {
-          if (onMarkerSelect) onMarkerSelect(m);
+          if (onMarkerSelectRef.current) {
+            onMarkerSelectRef.current(m);
+          }
         });
 
         // Popup interactivo moderno y completo
@@ -155,8 +161,17 @@ export default function InteractiveMap({
             }
             <div style="margin-bottom: 8px;">
               <h4 style="font-weight: 800; font-size: 15px; margin: 0; color: #18181b; line-height: 1.2;">${m.title}</h4>
-              <p style="font-size: 12px; color: #71717a; margin: 3px 0 0 0; display: flex; align-items: center; gap: 4px;">
-                ⏱️ ${formatTimeAgo(m.report_date)}
+              ${
+                m.approximate_address
+                  ? `<p style="font-size: 12px; font-weight: 700; color: #27272a; margin: 4px 0 2px 0; display: flex; align-items: flex-start; gap: 4px; line-height: 1.3;">
+                      <span style="color: #ea580c; flex-shrink: 0;">📍</span>
+                      <span>${capitalizeWords(m.approximate_address)}</span>
+                     </p>`
+                  : ''
+              }
+              <p style="font-size: 11px; color: #71717a; margin: 3px 0 0 0; display: flex; align-items: center; gap: 4px; font-weight: 500;">
+                <span>⏱️</span>
+                <span>${isLostPet ? 'Se perdió' : isSighting ? 'Visto' : 'Encontrado'} ${formatTimeAgo(m.report_date)}</span>
               </p>
             </div>
             <div style="display: flex; flex-direction: column; gap: 6px; margin-top: 8px;">
@@ -180,22 +195,19 @@ export default function InteractiveMap({
           autoPanPadding: [20, 20]
         });
       });
-
-      if (selectedMarkerId && markerInstancesRef.current.has(selectedMarkerId)) {
-        const selectedMarker = markerInstancesRef.current.get(selectedMarkerId);
-        selectedMarker.openPopup();
-      }
     }
 
     updateMarkers();
-  }, [markers, activeFilter, onMarkerSelect]);
+  }, [markers, activeFilter]);
 
   // Si selectedMarkerId cambia externamente, abrir popup y centrar
   useEffect(() => {
     if (!selectedMarkerId || !leafletMapRef.current || !markerInstancesRef.current) return;
     const marker = markerInstancesRef.current.get(selectedMarkerId);
-    if (marker) {
-      marker.openPopup();
+    if (marker && leafletMapRef.current.hasLayer && leafletMapRef.current.hasLayer(marker)) {
+      if (!marker.isPopupOpen()) {
+        marker.openPopup();
+      }
       leafletMapRef.current.panTo(marker.getLatLng(), { animate: true });
     }
   }, [selectedMarkerId]);

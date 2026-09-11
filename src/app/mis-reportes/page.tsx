@@ -207,10 +207,10 @@ export default function MisReportesPage() {
                             />
                           </div>
                           <div className="space-y-1">
-                            <div className="flex items-center gap-2">
+                            <div className="flex flex-wrap items-center gap-2">
                               <StatusBadge status={rep.status} />
                               <span className="text-xs text-zinc-500">
-                                {formatTimeAgo(rep.created_at || rep.last_seen_date)}
+                                Extraviado {formatTimeAgo(rep.last_seen_date)} • Pub. {formatTimeAgo(rep.created_at)}
                               </span>
                             </div>
                             <h3 className="text-xl font-bold text-zinc-900 dark:text-white">

@@ -191,6 +191,8 @@ export interface MapMarkerItem {
   latitude: number;
   longitude: number;
   report_date: string;
+  approximate_address?: string;
+  created_at?: string;
 }
 
 export interface AdminDashboardStats {

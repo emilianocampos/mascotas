@@ -70,9 +70,9 @@ export default function MapaPage() {
     };
   }, [speciesFilter, radiusFilter]);
 
-  const handleMarkerSelect = (marker: MapMarkerItem) => {
+  const handleMarkerSelect = React.useCallback((marker: MapMarkerItem) => {
     setSelectedMarkerId(marker.marker_id);
-  };
+  }, []);
 
   return (
     <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-4 sm:space-y-6">
@@ -156,9 +156,7 @@ export default function MapaPage() {
           <InteractiveMap
             markers={markers}
             selectedMarkerId={selectedMarkerId}
-            onMarkerSelect={(m) => {
-              handleMarkerSelect(m);
-            }}
+            onMarkerSelect={handleMarkerSelect}
             height="520px"
           />
         </div>

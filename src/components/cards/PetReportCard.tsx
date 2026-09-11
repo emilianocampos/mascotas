@@ -28,7 +28,8 @@ export function PetReportCard({ report, type }: PetReportCardProps) {
   const rawName = report.pet?.name || (isLost ? 'Mascota perdida' : 'Mascota encontrada');
   const petName = capitalizeWords(rawName);
   const photo = report.pet?.photos?.[0] || 'https://images.unsplash.com/photo-1543466835-00a7907e9de1?auto=format&fit=crop&q=80&w=600';
-  const publishDate = report.created_at || (isLost ? lostRep!.last_seen_date : foundRep!.found_date);
+  const eventDate = isLost ? (lostRep?.last_seen_date || report.created_at) : (foundRep?.found_date || report.created_at);
+  const createdDate = report.created_at;
   const species = report.pet?.species || 'dog';
   const details = report.pet?.distinctive_features || report.description;
 
@@ -106,7 +107,14 @@ export function PetReportCard({ report, type }: PetReportCardProps) {
             </div>
             <div className="flex items-center gap-1.5 text-zinc-500">
               <Clock className="w-3.5 h-3.5 shrink-0" />
-              <span>{isLost ? 'Se perdió' : 'Publicado'} {formatTimeAgo(publishDate)}</span>
+              <span>
+                <span className="font-semibold text-zinc-700 dark:text-zinc-300">{isLost ? 'Se extravió' : 'Encontrado'} {formatTimeAgo(eventDate)}</span>
+                {createdDate && (
+                  <span className="text-zinc-400 dark:text-zinc-500 text-[11px] ml-1">
+                    • Pub. {formatTimeAgo(createdDate)}
+                  </span>
+                )}
+              </span>
             </div>
           </div>
 

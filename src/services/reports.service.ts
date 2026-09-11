@@ -352,39 +352,21 @@ export async function getMapMarkers(
 ): Promise<MapMarkerItem[]> {
   const supabase = createBrowserClient();
 
-  const { data: rpcData, error: rpcError } = await supabase.rpc('get_map_markers', {
-    p_min_lat: minLat,
-    p_min_lng: minLng,
-    p_max_lat: maxLat,
-    p_max_lng: maxLng,
-  });
-
-  if (!rpcError && rpcData && Array.isArray(rpcData) && rpcData.length > 0) {
-    return (rpcData as any[]).map((item) => {
-      const coords = parseCoordinates(item.location || { latitude: item.latitude, longitude: item.longitude });
-      return {
-        ...item,
-        latitude: coords.latitude,
-        longitude: coords.longitude,
-      };
-    }) as MapMarkerItem[];
-  }
-
-  // Recopilar directamente de las 3 tablas en Supabase con selección completa
+  // Recopilar directamente de las 3 tablas en Supabase con selección completa (incluyendo calles y fechas exactas)
   const [lostRes, foundRes, sightingRes] = await Promise.all([
     supabase
       .from('lost_reports')
-      .select('id, last_seen_date, last_seen_location, approximate_address, status, pet:pets(name, species, photos)')
+      .select('id, last_seen_date, last_seen_location, approximate_address, status, created_at, pet:pets(name, species, photos)')
       .eq('status', 'ACTIVE')
       .order('created_at', { ascending: false }),
     supabase
       .from('found_reports')
-      .select('id, found_date, found_location, approximate_address, status, pet:pets(name, species, photos)')
+      .select('id, found_date, found_location, approximate_address, status, created_at, pet:pets(name, species, photos)')
       .eq('status', 'ACTIVE')
       .order('created_at', { ascending: false }),
     supabase
       .from('sightings')
-      .select('id, sighting_date, location, approximate_address, photo_url, status, lost_report_id, lost_report:lost_reports(id, pet:pets(name, species, photos))')
+      .select('id, sighting_date, location, approximate_address, photo_url, status, created_at, lost_report_id, lost_report:lost_reports(id, pet:pets(name, species, photos))')
       .order('created_at', { ascending: false }),
   ]);
 
@@ -395,12 +377,14 @@ export async function getMapMarkers(
     markers.push({
       marker_id: row.id,
       marker_type: 'lost',
-      title: `${row.pet?.name || 'Mascota'} (Perdida)`,
+      title: `${row.pet?.name || 'Mascota'}`,
       species: row.pet?.species || 'dog',
       photo_url: row.pet?.photos?.[0] || null,
       latitude: coords.latitude,
       longitude: coords.longitude,
       report_date: row.last_seen_date,
+      approximate_address: row.approximate_address,
+      created_at: row.created_at,
     });
   });
 
@@ -415,6 +399,8 @@ export async function getMapMarkers(
       latitude: coords.latitude,
       longitude: coords.longitude,
       report_date: row.found_date,
+      approximate_address: row.approximate_address,
+      created_at: row.created_at,
     });
   });
 
@@ -430,6 +416,8 @@ export async function getMapMarkers(
       latitude: coords.latitude,
       longitude: coords.longitude,
       report_date: row.sighting_date,
+      approximate_address: row.approximate_address,
+      created_at: row.created_at,
     });
   });
 
