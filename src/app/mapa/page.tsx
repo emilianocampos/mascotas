@@ -14,7 +14,8 @@ import {
   Search, 
   SlidersHorizontal,
   ChevronDown,
-  List
+  List,
+  Loader2
 } from 'lucide-react';
 
 // Dynamic import of InteractiveMap to avoid SSR issues with Leaflet window object
@@ -23,7 +24,7 @@ const InteractiveMap = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="w-full h-[600px] bg-zinc-100 dark:bg-zinc-900 rounded-2xl flex items-center justify-center text-zinc-400 animate-pulse">
+      <div className="w-full h-[520px] bg-zinc-100 dark:bg-zinc-900 rounded-2xl flex items-center justify-center text-zinc-400 animate-pulse border border-zinc-200 dark:border-zinc-800">
         <Compass className="w-8 h-8 animate-spin text-orange-500 mr-2" />
         <span>Cargando mapa interactivo en tiempo real...</span>
       </div>
@@ -38,34 +39,48 @@ export default function MapaPage() {
   const [speciesFilter, setSpeciesFilter] = useState<PetSpecies | 'all'>('all');
   const [radiusFilter, setRadiusFilter] = useState<number>(5000); // 5km
   const [mobileView, setMobileView] = useState<'map' | 'list'>('map');
+  const [isLoading, setIsLoading] = useState<boolean>(true);
 
   useEffect(() => {
-    async function loadData() {
-      const [markerData, lostData] = await Promise.all([
-        getMapMarkers(),
-        getNearbyLostReports(-43.24895, -65.30505, radiusFilter, speciesFilter),
-      ]);
-      setMarkers(markerData);
-      setLostReports(lostData);
+    let isMounted = true;
+    async function loadData(showLoader = false) {
+      if (showLoader && isMounted) setIsLoading(true);
+      try {
+        const [markerData, lostData] = await Promise.all([
+          getMapMarkers(),
+          getNearbyLostReports(-43.24895, -65.30505, radiusFilter, speciesFilter),
+        ]);
+        if (isMounted) {
+          setMarkers(markerData);
+          setLostReports(lostData);
+        }
+      } catch (err) {
+        console.error('Error al cargar datos del mapa:', err);
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
     }
-    loadData();
+    loadData(true);
 
     // Suscripción en Tiempo Real con Supabase Realtime
     const supabase = createBrowserClient();
     const channel = supabase
       .channel('map-live-sync')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'lost_reports' }, () => {
-        loadData();
+        loadData(false);
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'found_reports' }, () => {
-        loadData();
+        loadData(false);
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'sightings' }, () => {
-        loadData();
+        loadData(false);
       })
       .subscribe();
 
     return () => {
+      isMounted = false;
       supabase.removeChannel(channel);
     };
   }, [speciesFilter, radiusFilter]);
@@ -144,7 +159,7 @@ export default function MapaPage() {
           }`}
         >
           <List className="w-3.5 h-3.5" />
-          Ver Lista ({lostReports.length})
+          Ver Lista ({isLoading ? '...' : lostReports.length})
         </button>
       </div>
 
@@ -158,21 +173,45 @@ export default function MapaPage() {
             selectedMarkerId={selectedMarkerId}
             onMarkerSelect={handleMarkerSelect}
             height="520px"
+            isLoading={isLoading}
           />
         </div>
 
         {/* Listado lateral sincronizado por proximidad */}
         <div className={`space-y-4 max-h-[580px] overflow-y-auto pr-1 ${mobileView === 'map' ? 'hidden lg:block' : 'block'}`}>
           <div className="sticky top-0 bg-zinc-50 dark:bg-zinc-950 pb-2 z-10 flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800">
-            <h3 className="font-extrabold text-sm text-zinc-900 dark:text-zinc-100 flex items-center gap-1.5">
+            <h3 className="font-extrabold text-sm text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
               <List className="w-4 h-4 text-orange-500" />
-              Publicaciones Cercanas ({lostReports.length})
+              <span>Publicaciones Cercanas ({isLoading ? '...' : lostReports.length})</span>
             </h3>
-            <span className="text-xs text-zinc-400">Ordenadas por distancia</span>
+            {isLoading ? (
+              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-orange-500 animate-pulse">
+                <Loader2 className="w-3 h-3 animate-spin" />
+                <span>Buscando...</span>
+              </span>
+            ) : (
+              <span className="text-xs text-zinc-400">Ordenadas por distancia</span>
+            )}
           </div>
 
           <div className="space-y-4">
-            {lostReports.length === 0 ? (
+            {isLoading ? (
+              /* Skeletons de carga suave */
+              <div className="space-y-4 animate-pulse">
+                {[1, 2, 3].map((i) => (
+                  <div 
+                    key={i} 
+                    className="p-4 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 space-y-3"
+                  >
+                    <div className="w-full aspect-16/11 bg-zinc-200 dark:bg-zinc-800 rounded-xl" />
+                    <div className="space-y-2">
+                      <div className="h-4 bg-zinc-200 dark:bg-zinc-800 rounded w-2/3" />
+                      <div className="h-3 bg-zinc-200 dark:bg-zinc-800 rounded w-1/2" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : lostReports.length === 0 ? (
               <div className="p-8 text-center bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 text-xs text-zinc-500">
                 No hay reportes en el radio seleccionado.
               </div>

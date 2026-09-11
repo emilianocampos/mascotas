@@ -13,6 +13,7 @@ interface InteractiveMapProps {
   onMarkerSelect?: (marker: MapMarkerItem) => void;
   selectedMarkerId?: string | null;
   height?: string;
+  isLoading?: boolean;
 }
 
 export default function InteractiveMap({
@@ -22,6 +23,7 @@ export default function InteractiveMap({
   onMarkerSelect,
   selectedMarkerId,
   height = '500px',
+  isLoading = false,
 }: InteractiveMapProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const leafletMapRef = useRef<any>(null);
@@ -276,17 +278,26 @@ export default function InteractiveMap({
       {/* Contenedor Leaflet */}
       <div ref={mapContainerRef} className="w-full h-full z-0" />
 
+      {/* Floating Loading Indicator */}
+      {isLoading && (
+        <div className="absolute top-16 left-1/2 -translate-x-1/2 z-20 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md px-3.5 py-1.5 rounded-full shadow-lg border border-zinc-200/80 dark:border-zinc-800 flex items-center gap-2 text-xs font-bold text-zinc-800 dark:text-zinc-200 animate-in fade-in zoom-in-95">
+          <div className="w-3.5 h-3.5 border-2 border-orange-500 border-t-transparent rounded-full animate-spin shrink-0" />
+          <span>Buscando mascotas en el mapa...</span>
+        </div>
+      )}
+
       {/* Barra de Filtros Flotante */}
       <div className="absolute top-3 left-3 right-3 sm:right-auto z-10 flex items-center gap-1.5 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md p-1.5 rounded-xl shadow-md border border-zinc-200 dark:border-zinc-800 overflow-x-auto max-w-[calc(100%-24px)] no-scrollbar">
         <button
           onClick={() => setActiveFilter('all')}
-          className={`px-3 py-1 rounded-lg text-xs font-bold whitespace-nowrap shrink-0 transition-colors ${
+          className={`px-3 py-1 rounded-lg text-xs font-bold whitespace-nowrap shrink-0 transition-colors flex items-center gap-1.5 ${
             activeFilter === 'all'
               ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900'
               : 'text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800'
           }`}
         >
-          Todos ({markers.length})
+          <span>Todos</span>
+          <span className="opacity-80">({isLoading ? '...' : markers.length})</span>
         </button>
         <button
           onClick={() => setActiveFilter('lost')}
