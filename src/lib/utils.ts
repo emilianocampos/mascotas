@@ -79,6 +79,24 @@ export function parseLocalInputToIso(datetimeLocalStr?: string | null): string {
   return d.toISOString();
 }
 
+/**
+ * Calcula la distancia en metros entre dos coordenadas geográficas (fórmula de Haversine)
+ */
+export function calculateDistanceMeters(
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number
+): number {
+  const R = 6371e3; // Radio de la Tierra en metros
+  const p1 = (lat1 * Math.PI) / 180;
+  const p2 = (lat2 * Math.PI) / 180;
+  const dp = ((lat2 - lat1) * Math.PI) / 180;
+  const dl = ((lon2 - lon1) * Math.PI) / 180;
+  const a = Math.sin(dp / 2) ** 2 + Math.cos(p1) * Math.cos(p2) * Math.sin(dl / 2) ** 2;
+  return Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
+}
+
 export function formatDistance(meters?: number | null): string {
   if (meters === undefined || meters === null) return '';
   if (meters < 1000) {
@@ -184,17 +202,62 @@ export function getStatusBadge(status: ReportStatus): { label: string; colorClas
 
 export function parseGeoLocation(loc: any): { latitude: number; longitude: number } | null {
   if (!loc) return null;
-  if (typeof loc === 'object' && typeof loc.latitude === 'number' && typeof loc.longitude === 'number') {
-    return { latitude: loc.latitude, longitude: loc.longitude };
-  }
-  if (typeof loc === 'object' && Array.isArray(loc.coordinates) && loc.coordinates.length >= 2) {
-    return { latitude: Number(loc.coordinates[1]), longitude: Number(loc.coordinates[0]) };
-  }
-  if (typeof loc === 'string') {
-    const match = loc.match(/POINT\s*\(\s*([-\d.]+)\s+([-\d.]+)\s*\)/i);
-    if (match) {
-      return { latitude: parseFloat(match[2]), longitude: parseFloat(match[1]) };
+
+  // Si ya es un objeto { latitude, longitude } o { lat, lng }
+  if (typeof loc === 'object' && loc !== null) {
+    if (typeof loc.latitude === 'number' && typeof loc.longitude === 'number' && !isNaN(loc.latitude) && !isNaN(loc.longitude)) {
+      return { latitude: loc.latitude, longitude: loc.longitude };
+    }
+    if (typeof loc.lat === 'number' && typeof loc.lng === 'number' && !isNaN(loc.lat) && !isNaN(loc.lng)) {
+      return { latitude: loc.lat, longitude: loc.lng };
+    }
+    // GeoJSON { type: 'Point', coordinates: [lng, lat] }
+    if (Array.isArray(loc.coordinates) && loc.coordinates.length >= 2) {
+      const lat = Number(loc.coordinates[1]);
+      const lng = Number(loc.coordinates[0]);
+      if (!isNaN(lat) && !isNaN(lng)) {
+        return { latitude: lat, longitude: lng };
+      }
     }
   }
+
+  // Si es un string
+  if (typeof loc === 'string') {
+    // 1. WKT: "POINT(lng lat)" o "SRID=4326;POINT(lng lat)"
+    const pointMatch = loc.match(/POINT\s*\(\s*([-\d.]+)\s+([-\d.]+)\s*\)/i);
+    if (pointMatch) {
+      const lat = parseFloat(pointMatch[2]);
+      const lng = parseFloat(pointMatch[1]);
+      if (!isNaN(lat) && !isNaN(lng)) {
+        return { latitude: lat, longitude: lng };
+      }
+    }
+
+    // 2. EWKB Hexadecimal (formato devuelto por defecto por PostGIS en Supabase / PostgREST)
+    try {
+      const cleanHex = loc.trim().replace(/^\\x/i, '');
+      if (cleanHex.length >= 32 && /^[0-9a-fA-F]+$/.test(cleanHex)) {
+        const bytes = new Uint8Array(cleanHex.match(/.{1,2}/g)!.map((b) => parseInt(b, 16)));
+        const view = new DataView(bytes.buffer);
+        const isLittleEndian = bytes[0] === 1;
+        let offset = 1;
+        const geomType = view.getUint32(offset, isLittleEndian);
+        offset += 4;
+        if ((geomType & 0x20000000) !== 0) {
+          offset += 4; // saltar SRID de 4 bytes
+        }
+        const lng = view.getFloat64(offset, isLittleEndian);
+        offset += 8;
+        const lat = view.getFloat64(offset, isLittleEndian);
+        if (!isNaN(lat) && !isNaN(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+          return { latitude: lat, longitude: lng };
+        }
+      }
+    } catch {
+      // Ignorar error de parsing EWKB y continuar
+    }
+  }
+
   return null;
 }
+

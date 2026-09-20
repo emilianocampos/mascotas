@@ -53,6 +53,8 @@ export default function SightingDetailInteractive({ sighting }: SightingDetailPr
   const linkedPet = lostReport?.pet;
   const ownerProfile = lostReport?.profile;
 
+  const isHolding = sighting.is_holding === true || (typeof sighting.description === 'string' && (sighting.description.includes('EN TRÁNSITO') || sighting.description.includes('🏠')));
+
   const photo = sighting.photo_url;
   const formattedDate = formatDate(sighting.sighting_date);
   const timeAgo = formatTimeAgo(sighting.sighting_date);
@@ -67,8 +69,8 @@ export default function SightingDetailInteractive({ sighting }: SightingDetailPr
     const url = window.location.href;
     if (navigator.share) {
       navigator.share({
-        title: `🟡 Avistamiento de mascota en Trelew: ${capitalizeWords(sighting.approximate_address)}`,
-        text: `Se reportó un avistamiento de mascota en ${capitalizeWords(sighting.approximate_address)} (${timeAgo}). Mirá los detalles y fotos:`,
+        title: `${isHolding ? '🏠 En Tránsito' : '🟡 Avistamiento'}: ${capitalizeWords(sighting.approximate_address)} — Mascotas Trelew`,
+        text: `Reporte de mascota en Trelew (${capitalizeWords(sighting.approximate_address)}, ${timeAgo}). Mirá los detalles y fotos:`,
         url,
       }).catch(() => {});
     } else {
@@ -107,20 +109,29 @@ export default function SightingDetailInteractive({ sighting }: SightingDetailPr
       {/* Tarjeta Principal */}
       <div className="bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 rounded-3xl p-5 sm:p-7 shadow-xl shadow-zinc-200/40 dark:shadow-none space-y-6">
         
-        {/* Encabezado con Badge de Avistamiento */}
+        {/* Encabezado con Badge de Avistamiento / En Tránsito */}
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-100 dark:border-zinc-800 pb-5">
-          <div className="space-y-1">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-100 dark:bg-amber-950/60 text-amber-900 dark:text-amber-300 text-xs font-black uppercase tracking-wider border border-amber-300 dark:border-amber-800/80">
-              <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-ping" />
-              <span>Avistamiento en Vía Pública</span>
-            </div>
+          <div className="space-y-1.5">
+            {isHolding ? (
+              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-100 dark:bg-emerald-950/70 text-emerald-900 dark:text-emerald-300 text-xs font-black uppercase tracking-wider border border-emerald-300 dark:border-emerald-800 shadow-xs">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                <span>🏠 En Tránsito / A Resguardo</span>
+              </div>
+            ) : (
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-100 dark:bg-amber-950/60 text-amber-900 dark:text-amber-300 text-xs font-black uppercase tracking-wider border border-amber-300 dark:border-amber-800/80">
+                <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-ping" />
+                <span>🐾 Visto en la Vía Pública</span>
+              </div>
+            )}
             <h1 className="text-2xl sm:text-3xl font-black text-zinc-950 dark:text-white tracking-tight">
-              {linkedPet?.name ? `Vieron a ${capitalizeWords(linkedPet.name)}` : 'Mascota Avistada'}
+              {isHolding 
+                ? (linkedPet?.name ? `${capitalizeWords(linkedPet.name)} en Tránsito` : 'Mascota en Tránsito (A salvo)')
+                : (linkedPet?.name ? `Vieron a ${capitalizeWords(linkedPet.name)}` : 'Mascota Avistada en la Calle')}
             </h1>
           </div>
 
           <div className="flex items-center gap-1.5 text-xs font-bold text-zinc-500 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-800 px-3 py-1.5 rounded-xl">
-            <Clock className="w-3.5 h-3.5 text-amber-500" />
+            <Clock className={`w-3.5 h-3.5 ${isHolding ? 'text-emerald-500' : 'text-amber-500'}`} />
             <span>{timeAgo}</span>
           </div>
         </div>
@@ -249,19 +260,19 @@ export default function SightingDetailInteractive({ sighting }: SightingDetailPr
           </p>
         </div>
 
-        {/* Mini Mapa Interactivo de Ubicación del Avistamiento */}
+        {/* Mini Mapa Interactivo de Ubicación del Avistamiento / Resguardo */}
         <div className="space-y-3 pt-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 text-xs font-black uppercase text-zinc-900 dark:text-white">
-              <Navigation className="w-4 h-4 text-amber-500" />
-              <span>Punto de Avistamiento en el Mapa</span>
+              <Navigation className={`w-4 h-4 ${isHolding ? 'text-emerald-500' : 'text-amber-500'}`} />
+              <span>{isHolding ? 'Punto de Resguardo en el Mapa' : 'Punto de Avistamiento en el Mapa'}</span>
             </div>
 
             <a 
               href={googleMapsUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 text-xs font-extrabold text-amber-600 dark:text-amber-400 hover:underline"
+              className={`inline-flex items-center gap-1 text-xs font-extrabold ${isHolding ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'} hover:underline`}
             >
               <span>Abrir en Google Maps</span>
               <ExternalLink className="w-3 h-3" />
@@ -269,7 +280,12 @@ export default function SightingDetailInteractive({ sighting }: SightingDetailPr
           </div>
 
           <div className="rounded-2xl overflow-hidden border border-zinc-200 dark:border-zinc-800 shadow-sm h-64 w-full">
-            <MiniLeafletMap latitude={loc.latitude} longitude={loc.longitude} title={sighting.approximate_address} />
+            <MiniLeafletMap 
+              latitude={loc.latitude} 
+              longitude={loc.longitude} 
+              title={sighting.approximate_address} 
+              isHolding={isHolding}
+            />
           </div>
         </div>
 

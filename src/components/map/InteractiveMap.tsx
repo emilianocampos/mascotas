@@ -95,18 +95,18 @@ export default function InteractiveMap({
       filtered.forEach((m) => {
         let colorBg = 'bg-rose-500';
         let borderColor = 'border-rose-600';
-        let badgeText = 'PERDIDO';
-        if (m.marker_type === 'found') {
+        let badgeText = '🔴 PERDIDO';
+        if (m.marker_type === 'found' || m.is_holding) {
           colorBg = 'bg-emerald-500';
           borderColor = 'border-emerald-600';
-          badgeText = 'ENCONTRADO';
+          badgeText = '🏠 EN TRÁNSITO';
         } else if (m.marker_type === 'sighting') {
           colorBg = 'bg-amber-500';
           borderColor = 'border-amber-600';
-          badgeText = 'AVISTAMIENTO';
+          badgeText = '🐾 VISTO EN LA CALLE';
         }
 
-        const emoji = getSpeciesEmoji(m.species);
+        const emoji = m.is_holding ? '🏠' : getSpeciesEmoji(m.species);
 
         const customHtml = `
           <div style="width: 32px; height: 40px; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; cursor: pointer;">
@@ -141,11 +141,11 @@ export default function InteractiveMap({
         const isLostPet = m.marker_type === 'lost';
         const isSighting = m.marker_type === 'sighting';
         const sightingUrl = `/publicar/avistamiento?reportId=${m.marker_id}&petName=${encodeURIComponent(m.title.replace(' (Perdida)', ''))}`;
-        const detailUrl = isSighting 
+        const detailUrl = m.detail_url || (isSighting 
           ? `/mascota-avistada/${m.marker_id}` 
           : m.marker_type === 'found' 
             ? `/mascotas-encontradas/${m.marker_id}` 
-            : `/mascotas-perdidas/${m.marker_id}`;
+            : `/mascotas-perdidas/${m.marker_id}`);
 
         const popupContent = `
           <div style="min-width: 210px; max-width: 250px; font-family: system-ui, -apple-system, sans-serif; padding: 2px;">
@@ -303,36 +303,39 @@ export default function InteractiveMap({
           onClick={() => setActiveFilter('lost')}
           className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold whitespace-nowrap shrink-0 transition-colors ${
             activeFilter === 'lost'
-              ? 'bg-rose-600 text-white'
+              ? 'bg-rose-600 text-white shadow-xs'
               : 'text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40'
           }`}
         >
-          <span className="w-2 h-2 rounded-full bg-rose-500"></span>
-          Perdidas
-        </button>
-        <button
-          onClick={() => setActiveFilter('found')}
-          className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold whitespace-nowrap shrink-0 transition-colors ${
-            activeFilter === 'found'
-              ? 'bg-emerald-600 text-white'
-              : 'text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40'
-          }`}
-        >
-          <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-          Encontradas
+          <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>
+          Perdidas 🔴
         </button>
         <button
           onClick={() => setActiveFilter('sighting')}
           className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold whitespace-nowrap shrink-0 transition-colors ${
             activeFilter === 'sighting'
-              ? 'bg-amber-600 text-white'
+              ? 'bg-amber-600 text-white shadow-xs'
               : 'text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40'
           }`}
         >
           <span className="w-2 h-2 rounded-full bg-amber-500"></span>
-          Avistamientos
+          Vistos en la calle 🐾
         </button>
+        {markers.some((m) => m.marker_type === 'found' || m.is_holding) && (
+          <button
+            onClick={() => setActiveFilter('found')}
+            className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold whitespace-nowrap shrink-0 transition-colors ${
+              activeFilter === 'found'
+                ? 'bg-emerald-600 text-white shadow-xs'
+                : 'text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40'
+            }`}
+          >
+            <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+            En Tránsito 🏠
+          </button>
+        )}
       </div>
+
 
       {/* Botón GPS Mi Ubicación */}
       <button

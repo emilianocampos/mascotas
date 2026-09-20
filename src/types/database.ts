@@ -79,6 +79,7 @@ export interface LostReport {
   pet?: Pet;
   profile?: Profile;
   distance_meters?: number;
+  sightings_count?: number;
 }
 
 export interface FoundReport {
@@ -193,6 +194,9 @@ export interface MapMarkerItem {
   report_date: string;
   approximate_address?: string;
   created_at?: string;
+  is_holding?: boolean;
+  detail_url?: string;
+  sightings_count?: number;
 }
 
 export interface AdminDashboardStats {

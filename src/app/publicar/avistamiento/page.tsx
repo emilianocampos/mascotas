@@ -32,6 +32,8 @@ function SightingForm() {
 
   const [formData, setFormData] = useState<Partial<SightingInput> & { photos?: string[] }>({
     lost_report_id: initialReportId || null,
+    is_holding: false,
+    contact_phone: '',
     latitude: -43.24895,
     longitude: -65.30505,
     sighting_date: getLocalDatetimeInputValue(),
@@ -62,6 +64,8 @@ function SightingForm() {
 
     const payload: SightingInput = {
       lost_report_id: formData.lost_report_id && formData.lost_report_id.trim() ? formData.lost_report_id : null,
+      is_holding: formData.is_holding,
+      contact_phone: formData.contact_phone || null,
       latitude: formData.latitude || -43.24895,
       longitude: formData.longitude || -65.30505,
       approximate_address: formattedAddress,
@@ -70,6 +74,7 @@ function SightingForm() {
       description: formData.description || '',
       reporter_name: formData.reporter_name || 'Vecino solidario',
     };
+
 
     const validation = sightingSchema.safeParse(payload);
     if (!validation.success) {
@@ -189,13 +194,13 @@ function SightingForm() {
       <div className="space-y-2 border-b border-zinc-200 dark:border-zinc-800 pb-5">
         <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 text-xs font-bold uppercase">
           <span className="w-2 h-2 rounded-full bg-amber-500"></span>
-          Avistamiento Express
+          Avistamiento o Tránsito
         </div>
         <h1 className="text-2xl sm:text-3xl font-black text-zinc-900 dark:text-white">
-          Vi una mascota en la calle
+          Vi o encontré una mascota
         </h1>
         <p className="text-sm text-zinc-500">
-          ¿Viste a un perro o gato deambulando? Registrá el lugar y la hora para ayudar a su familia a encontrarlo.
+          ¿Viste a un animal deambulando o lo resguardaste en tránsito en tu casa? Registralo acá para que su familia pueda ubicarlo.
         </p>
       </div>
 
@@ -211,12 +216,81 @@ function SightingForm() {
       )}
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        
-        {/* Selector de Mascota Perdida Vinculada */}
+
+        {/* 1. ¿DÓNDE ESTÁ EL ANIMAL AHORA? (TRÁNSITO VS CALLE) */}
+        <div className="bg-white dark:bg-zinc-900 p-5 rounded-2xl border border-zinc-200 dark:border-zinc-800 space-y-4 shadow-xs">
+          <h2 className="font-bold text-base text-zinc-900 dark:text-zinc-100 border-b border-zinc-100 dark:border-zinc-800 pb-2">
+            1. ¿Dónde está el animal ahora?
+          </h2>
+
+          <div className="space-y-3">
+            <label className={`flex items-center gap-3 p-3.5 rounded-xl border transition-all cursor-pointer ${
+              formData.is_holding === true
+                ? 'border-emerald-500 bg-emerald-50/60 dark:bg-emerald-950/40 shadow-xs'
+                : 'border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/60 hover:border-zinc-300'
+            }`}>
+              <input
+                type="radio"
+                name="is_holding"
+                checked={formData.is_holding === true}
+                onChange={() => setFormData({ ...formData, is_holding: true })}
+                className="w-4 h-4 text-emerald-600 focus:ring-emerald-500"
+              />
+              <div>
+                <span className="text-sm font-bold text-zinc-900 dark:text-zinc-100 block">
+                  Lo tengo en tránsito en mi casa / patio 🏠
+                </span>
+                <span className="text-xs text-zinc-500">
+                  El animal está a salvo esperando que aparezca su dueño.
+                </span>
+              </div>
+            </label>
+
+            <label className={`flex items-center gap-3 p-3.5 rounded-xl border transition-all cursor-pointer ${
+              formData.is_holding === false
+                ? 'border-amber-500 bg-amber-50/60 dark:bg-amber-950/40 shadow-xs'
+                : 'border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/60 hover:border-zinc-300'
+            }`}>
+              <input
+                type="radio"
+                name="is_holding"
+                checked={formData.is_holding === false}
+                onChange={() => setFormData({ ...formData, is_holding: false })}
+                className="w-4 h-4 text-amber-600 focus:ring-amber-500"
+              />
+              <div>
+                <span className="text-sm font-bold text-zinc-900 dark:text-zinc-100 block">
+                  Quedó en la vía pública / no pude retenerlo 🐾
+                </span>
+                <span className="text-xs text-zinc-500">
+                  Fue visto deambulando en el lugar indicado abajo.
+                </span>
+              </div>
+            </label>
+          </div>
+
+          {formData.is_holding && (
+            <div className="pt-3 border-t border-zinc-100 dark:border-zinc-800 space-y-1.5 animate-in fade-in duration-200">
+              <label className="block text-xs font-bold text-zinc-700 dark:text-zinc-300">
+                Tu teléfono o WhatsApp de contacto para coordinar la devolución
+              </label>
+              <input
+                type="tel"
+                placeholder="Ej: 2804123456 (para que el dueño te contacte)"
+                value={formData.contact_phone || ''}
+                onChange={(e) => setFormData({ ...formData, contact_phone: e.target.value })}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 text-zinc-900 dark:text-zinc-100"
+              />
+            </div>
+          )}
+        </div>
+
+        {/* 2. Selector de Mascota Perdida Vinculada */}
         <div className="bg-white dark:bg-zinc-900 p-5 rounded-2xl border border-zinc-200 dark:border-zinc-800 space-y-3 shadow-xs">
           <label className="block text-xs font-bold text-zinc-700 dark:text-zinc-300">
-            ¿Reconocés si pertenece a alguna búsqueda activa en Trelew?
+            2. ¿Reconocés si pertenece a alguna búsqueda activa en Trelew? (Opcional)
           </label>
+
 
           <select
             value={formData.lost_report_id || ''}

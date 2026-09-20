@@ -3,6 +3,7 @@ import { LostReport, FoundReport, Sighting, MapMarkerItem, AdminDashboardStats, 
 import { LostReportInput } from '@/lib/validations/lost-report.schema';
 import { FoundReportInput } from '@/lib/validations/found-report.schema';
 import { SightingInput } from '@/lib/validations/sighting.schema';
+import { calculateDistanceMeters } from '@/lib/utils';
 
 /**
  * SERVICIO DIRECTO DE BASE DE DATOS SUPABASE + POSTGIS (SIN MOCKS)
@@ -28,21 +29,21 @@ export function parseCoordinates(loc: any): { latitude: number; longitude: numbe
     }
   }
 
-  // Si es un string WKT (Ej: "POINT(-65.30505 -43.24895)")
+  // Si es un string
   if (typeof loc === 'string') {
-    const wktMatch = loc.match(/POINT\s*\(\s*([-\d.]+)\s+([-\d.]+)\s*\)/i);
-    if (wktMatch) {
-      const lng = parseFloat(wktMatch[1]);
-      const lat = parseFloat(wktMatch[2]);
-      if (!isNaN(lat) && !isNaN(lng)) {
-        return { latitude: lat, longitude: lng };
-      }
+    // 1. WKT: "POINT(lng lat)" o "SRID=4326;POINT(lng lat)"
+    const pointMatch = loc.match(/POINT\s*\(\s*([-\d.]+)\s+([-\d.]+)\s*\)/i);
+    if (pointMatch) {
+      return {
+        latitude: parseFloat(pointMatch[2]),
+        longitude: parseFloat(pointMatch[1]),
+      };
     }
 
-    // Si es un string EWKB Hexadecimal (Ej: "0101000020E6100000...")
+    // 2. EWKB Hexadecimal (PostGIS default en PostgREST: ej "0101000020E6100000...")
     try {
-      const cleanHex = loc.trim().replace(/^\\x/, '');
-      if (cleanHex.length >= 32) {
+      const cleanHex = loc.trim().replace(/^\\x/i, '');
+      if (cleanHex.length >= 32 && /^[0-9a-fA-F]+$/.test(cleanHex)) {
         const bytes = new Uint8Array(cleanHex.match(/.{1,2}/g)!.map((b) => parseInt(b, 16)));
         const view = new DataView(bytes.buffer);
         const isLittleEndian = bytes[0] === 1;
@@ -59,33 +60,52 @@ export function parseCoordinates(loc: any): { latitude: number; longitude: numbe
           return { latitude: lat, longitude: lng };
         }
       }
-    } catch (e) {
-      // Fallback
+    } catch {
+      // Ignorar error de parsing hex
+    }
+
+    // 3. JSON stringificado
+    try {
+      const parsed = JSON.parse(loc);
+      return parseCoordinates(parsed);
+    } catch {
+      // Ignorar error
     }
   }
 
+  // Fallback por defecto: Centro de Trelew, Chubut
   return { latitude: -43.24895, longitude: -65.30505 };
 }
 
-// 1. Subir fotografía a Supabase Storage Bucket 'pet-photos' o 'sighting-photos'
-export async function uploadPetPhoto(file: File, bucketName: 'pet-photos' | 'sighting-photos' = 'pet-photos'): Promise<string> {
+// 1. Subir imagen a Supabase Storage (Bucket: pet-photos)
+export async function uploadPetPhoto(file: File): Promise<string> {
   const supabase = createBrowserClient();
+  const bucketName = 'pet-photos';
+
+  // Sanitizar el nombre del archivo y generar ruta única
   const fileExt = file.name.split('.').pop() || 'jpg';
   const fileName = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}.${fileExt}`;
-  const filePath = `${fileName}`;
+  const filePath = `reports/${fileName}`;
 
-  const { error: uploadError } = await supabase.storage
+  // Intentar subir directamente a Supabase Storage
+  const { data, error } = await supabase.storage
     .from(bucketName)
     .upload(filePath, file, {
       cacheControl: '3600',
       upsert: false,
     });
 
-  if (uploadError) {
-    console.error('Error al subir imagen a Supabase Storage:', uploadError);
-    throw new Error(`Error al subir imagen: ${uploadError.message}`);
+  if (error) {
+    console.warn(`Aviso en Storage Supabase: ${error.message}.`);
+    // Fallback: Si el bucket aún no fue creado en el dashboard de Supabase, generar Data URL
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.readAsDataURL(file);
+    });
   }
 
+  // Obtener la URL pública del archivo subido
   const { data: publicUrlData } = supabase.storage
     .from(bucketName)
     .getPublicUrl(filePath);
@@ -93,7 +113,171 @@ export async function uploadPetPhoto(file: File, bucketName: 'pet-photos' | 'sig
   return publicUrlData.publicUrl;
 }
 
-// 2. Obtener Mascotas Perdidas por proximidad (PostGIS RPC o consulta Supabase)
+// Estructura de datos unificada para carga ultra rápida del mapa (1 sola llamada a Supabase)
+export interface UnifiedMapData {
+  markers: MapMarkerItem[];
+  lostReports: LostReport[];
+  reunitedCount: number;
+}
+
+/**
+ * Carga optimizada para el mapa:
+ * Ejecuta una sola consulta a lost_reports, found_reports, sightings y contador,
+ * evitando saturar el connection pooler de Supabase y evitando timeouts de PostgreSQL.
+ */
+export async function getUnifiedMapData(
+  centerLat: number = -43.24895,
+  centerLng: number = -65.30505,
+  radiusMeters: number = 10000,
+  species?: PetSpecies | 'all'
+): Promise<UnifiedMapData> {
+  const supabase = createBrowserClient();
+
+  try {
+    const [lostRes, foundRes, sightingRes, reunitedRes] = await Promise.all([
+      supabase
+        .from('lost_reports')
+        .select('id, user_id, pet_id, status, last_seen_date, last_seen_location, approximate_address, description, contact_phone, contact_name, contact_phone_public, created_at, pet:pets(*)')
+        .eq('status', 'ACTIVE')
+        .order('created_at', { ascending: false })
+        .limit(50),
+      supabase
+        .from('found_reports')
+        .select('id, found_date, found_location, approximate_address, status, created_at, pet:pets(name, species, photos)')
+        .eq('status', 'ACTIVE')
+        .order('created_at', { ascending: false })
+        .limit(50),
+      supabase
+        .from('sightings')
+        .select('id, sighting_date, location, approximate_address, photo_url, status, description, created_at, lost_report_id, lost_report:lost_reports(id, pet:pets(name, species, photos))')
+        .order('created_at', { ascending: false })
+        .limit(50),
+      supabase
+        .from('lost_reports')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'REUNITED')
+    ]);
+
+    const rawLost = lostRes.data || [];
+    const rawFound = foundRes.data || [];
+    const rawSightings = sightingRes.data || [];
+
+    // 1. Construir conteo de avistamientos por reporte de mascota perdida
+    const sightingsCountByLostId: Record<string, number> = {};
+    rawSightings.forEach((s: any) => {
+      if (s.lost_report_id) {
+        sightingsCountByLostId[s.lost_report_id] = (sightingsCountByLostId[s.lost_report_id] || 0) + 1;
+      }
+    });
+
+    // 2. Construir marcadores para el mapa
+    const markers: MapMarkerItem[] = [];
+
+    rawLost.forEach((row: any) => {
+      if (species && species !== 'all' && row.pet?.species !== species) return;
+      const coords = parseCoordinates(row.last_seen_location);
+      const sCount = sightingsCountByLostId[row.id] || 0;
+      markers.push({
+        marker_id: row.id,
+        marker_type: 'lost',
+        title: `${row.pet?.name || 'Mascota'}`,
+        species: row.pet?.species || 'dog',
+        photo_url: row.pet?.photos?.[0] || null,
+        latitude: coords.latitude,
+        longitude: coords.longitude,
+        report_date: row.last_seen_date,
+        approximate_address: row.approximate_address,
+        created_at: row.created_at,
+        detail_url: `/mascotas-perdidas/${row.id}`,
+        sightings_count: sCount,
+      });
+    });
+
+    rawFound.forEach((row: any) => {
+      if (species && species !== 'all' && row.pet?.species !== species) return;
+      const coords = parseCoordinates(row.found_location);
+      markers.push({
+        marker_id: row.id,
+        marker_type: 'found',
+        title: 'Mascota Encontrada',
+        species: row.pet?.species || 'dog',
+        photo_url: row.pet?.photos?.[0] || null,
+        latitude: coords.latitude,
+        longitude: coords.longitude,
+        report_date: row.found_date,
+        approximate_address: row.approximate_address,
+        created_at: row.created_at,
+        is_holding: true,
+        detail_url: `/mascotas-encontradas/${row.id}`,
+      });
+    });
+
+    rawSightings.forEach((row: any) => {
+      const sSpecies = row.lost_report?.pet?.species;
+      if (species && species !== 'all' && sSpecies && sSpecies !== species) return;
+      const coords = parseCoordinates(row.location);
+      const petName = row.lost_report?.pet?.name;
+      const isHolding = row.is_holding === true || (typeof row.description === 'string' && (row.description.includes('EN TRÁNSITO') || row.description.includes('🏠')));
+      markers.push({
+        marker_id: row.id,
+        marker_type: isHolding ? 'found' : 'sighting',
+        title: isHolding 
+          ? (petName ? `En Tránsito: ${petName}` : 'Mascota en Tránsito 🏠') 
+          : (petName ? `Avistamiento de ${petName}` : 'Mascota Avistada 🐾'),
+        species: sSpecies || 'dog',
+        photo_url: row.photo_url || row.lost_report?.pet?.photos?.[0] || null,
+        latitude: coords.latitude,
+        longitude: coords.longitude,
+        report_date: row.sighting_date,
+        approximate_address: row.approximate_address,
+        created_at: row.created_at,
+        is_holding: isHolding,
+        detail_url: `/mascota-avistada/${row.id}`,
+      });
+    });
+
+    // 3. Construir publicaciones con distancia calculada para el panel lateral
+    let lostReports = rawLost.map((row: any) => {
+      const coords = parseCoordinates(row.last_seen_location);
+      const dist = calculateDistanceMeters(centerLat, centerLng, coords.latitude, coords.longitude);
+      const sCount = sightingsCountByLostId[row.id] || 0;
+      return {
+        ...row,
+        last_seen_location: coords,
+        distance_meters: dist,
+        sightings_count: sCount,
+      };
+    }) as LostReport[];
+
+    // Filtrar por especie
+    if (species && species !== 'all') {
+      lostReports = lostReports.filter((r) => r.pet?.species === species);
+    }
+
+    // Filtrar por radio de búsqueda
+    if (radiusMeters > 0) {
+      lostReports = lostReports.filter((r) => (r.distance_meters || 0) <= radiusMeters);
+    }
+
+    // Ordenar de la más cercana a la más lejana
+    lostReports.sort((a, b) => (a.distance_meters || 0) - (b.distance_meters || 0));
+
+    return {
+      markers,
+      lostReports,
+      reunitedCount: reunitedRes.count || 0,
+    };
+  } catch (err) {
+    console.warn('Error en getUnifiedMapData:', err);
+    return {
+      markers: [],
+      lostReports: [],
+      reunitedCount: 0,
+    };
+  }
+}
+
+// 2. Obtener Mascotas Perdidas por proximidad (optimizado, sin timeouts)
 export async function getNearbyLostReports(
   lat: number = -43.24895,
   lng: number = -65.30505,
@@ -101,68 +285,46 @@ export async function getNearbyLostReports(
   species?: PetSpecies | 'all'
 ): Promise<LostReport[]> {
   const supabase = createBrowserClient();
-  
-  // Intentar llamar a la función RPC de PostGIS
-  const { data: rpcData, error: rpcError } = await supabase.rpc('get_nearby_lost_reports', {
-    p_lat: lat,
-    p_lng: lng,
-    p_radius_meters: radiusMeters,
-    p_species: species === 'all' ? null : species,
-  });
+  try {
+    const { data, error } = await supabase
+      .from('lost_reports')
+      .select('id, user_id, pet_id, status, last_seen_date, last_seen_location, approximate_address, description, contact_phone, contact_name, contact_phone_public, created_at, pet:pets(*)')
+      .eq('status', 'ACTIVE')
+      .order('created_at', { ascending: false })
+      .limit(40);
 
-  if (!rpcError && rpcData) {
-    return rpcData.map((item: any) => ({
-      id: item.id,
-      user_id: '',
-      pet_id: item.pet_id,
-      status: item.status,
-      last_seen_date: item.last_seen_date,
-      last_seen_location: parseCoordinates(item.last_seen_location || { latitude: item.latitude, longitude: item.longitude }),
-      approximate_address: item.approximate_address,
-      description: '',
-      contact_phone_public: true,
-      views_count: 0,
-      created_at: item.created_at,
-      updated_at: item.created_at,
-      distance_meters: item.distance_meters,
-      pet: {
-        id: item.pet_id,
-        name: item.pet_name,
-        species: item.species,
-        breed: item.breed,
-        gender: 'unknown',
-        size: item.size,
-        primary_color: item.primary_color,
-        photos: item.photos || [],
-        created_at: item.created_at,
-      }
-    }));
-  }
+    if (error) {
+      console.warn('Aviso al consultar lost_reports:', error?.message || error);
+      return [];
+    }
 
-  // Consulta directa a tablas si la función RPC aún no está creada
-  let query = supabase
-    .from('lost_reports')
-    .select('*, pet:pets(*), profile:profiles(*)')
-    .eq('status', 'ACTIVE')
-    .order('created_at', { ascending: false });
+    let results = (data || []).map((row: any) => {
+      const coords = parseCoordinates(row.last_seen_location);
+      const dist = calculateDistanceMeters(lat, lng, coords.latitude, coords.longitude);
+      return {
+        ...row,
+        last_seen_location: coords,
+        distance_meters: dist,
+      };
+    }) as LostReport[];
 
-  if (species && species !== 'all') {
-    // Si se filtra por especie se puede filtrar en memoria
-  }
+    if (radiusMeters > 0) {
+      results = results.filter((r) => (r.distance_meters || 0) <= radiusMeters);
+    }
 
-  const { data, error } = await query;
-  if (error) {
-    console.error('Error al consultar lost_reports en Supabase:', error);
+    if (species && species !== 'all') {
+      results = results.filter((r: any) => r.pet?.species === species);
+    }
+
+    results.sort((a, b) => (a.distance_meters || 0) - (b.distance_meters || 0));
+    return results;
+  } catch (err) {
+    console.warn('Error en getNearbyLostReports:', err);
     return [];
   }
-
-  return (data || []).map((row: any) => ({
-    ...row,
-    last_seen_location: parseCoordinates(row.last_seen_location),
-  })) as LostReport[];
 }
 
-// 3. Obtener Mascotas Encontradas
+// 3. Obtener Mascotas Encontradas (optimizado)
 export async function getNearbyFoundReports(
   lat: number = -43.24895,
   lng: number = -65.30505,
@@ -170,57 +332,43 @@ export async function getNearbyFoundReports(
   species?: PetSpecies | 'all'
 ): Promise<FoundReport[]> {
   const supabase = createBrowserClient();
+  try {
+    const { data, error } = await supabase
+      .from('found_reports')
+      .select('id, finder_id, pet_id, status, found_date, found_location, approximate_address, is_holding, description, created_at, pet:pets(*)')
+      .eq('status', 'ACTIVE')
+      .order('created_at', { ascending: false })
+      .limit(40);
 
-  const { data: rpcData, error: rpcError } = await supabase.rpc('get_nearby_found_reports', {
-    p_lat: lat,
-    p_lng: lng,
-    p_radius_meters: radiusMeters,
-    p_species: species === 'all' ? null : species,
-  });
+    if (error) {
+      console.warn('Aviso al consultar found_reports:', error?.message || error);
+      return [];
+    }
 
-  if (!rpcError && rpcData) {
-    return rpcData.map((item: any) => ({
-      id: item.id,
-      finder_id: '',
-      pet_id: item.pet_id,
-      status: item.status,
-      found_date: item.found_date,
-      found_location: parseCoordinates(item.found_location || { latitude: item.latitude, longitude: item.longitude }),
-      approximate_address: item.approximate_address,
-      is_holding: item.is_holding,
-      description: '',
-      created_at: item.created_at,
-      updated_at: item.created_at,
-      distance_meters: item.distance_meters,
-      pet: {
-        id: item.pet_id,
-        name: 'Encontrado',
-        species: item.species,
-        breed: item.breed,
-        gender: 'unknown',
-        size: item.size,
-        primary_color: item.primary_color,
-        photos: item.photos || [],
-        created_at: item.created_at,
-      }
-    }));
-  }
+    let results = (data || []).map((row: any) => {
+      const coords = parseCoordinates(row.found_location);
+      const dist = calculateDistanceMeters(lat, lng, coords.latitude, coords.longitude);
+      return {
+        ...row,
+        found_location: coords,
+        distance_meters: dist,
+      };
+    }) as FoundReport[];
 
-  const { data, error } = await supabase
-    .from('found_reports')
-    .select('*, pet:pets(*), profile:profiles(*)')
-    .eq('status', 'ACTIVE')
-    .order('created_at', { ascending: false });
+    if (radiusMeters > 0) {
+      results = results.filter((r) => (r.distance_meters || 0) <= radiusMeters);
+    }
 
-  if (error) {
-    console.error('Error al consultar found_reports:', error);
+    if (species && species !== 'all') {
+      results = results.filter((r: any) => r.pet?.species === species);
+    }
+
+    results.sort((a, b) => (a.distance_meters || 0) - (b.distance_meters || 0));
+    return results;
+  } catch (err) {
+    console.warn('Error en getNearbyFoundReports:', err);
     return [];
   }
-
-  return (data || []).map((row: any) => ({
-    ...row,
-    found_location: parseCoordinates(row.found_location),
-  })) as FoundReport[];
 }
 
 export type UnifiedReport = 
@@ -232,7 +380,7 @@ export async function getLostReportById(id: string): Promise<LostReport | null> 
   const supabase = createBrowserClient();
   const { data, error } = await supabase
     .from('lost_reports')
-    .select('*, pet:pets(*), profile:profiles(*)')
+    .select('*, pet:pets(*)')
     .eq('id', id)
     .single();
 
@@ -250,7 +398,7 @@ export async function getFoundReportById(id: string): Promise<FoundReport | null
   const supabase = createBrowserClient();
   const { data, error } = await supabase
     .from('found_reports')
-    .select('*, pet:pets(*), profile:profiles(*)')
+    .select('*, pet:pets(*)')
     .eq('id', id)
     .single();
 
@@ -278,7 +426,7 @@ export async function getUnifiedReportById(id: string): Promise<UnifiedReport | 
   const supabase = createBrowserClient();
   const { data: sighting, error: sError } = await supabase
     .from('sightings')
-    .select('*, lost_report:lost_reports(*, pet:pets(*), profile:profiles(*))')
+    .select('*, lost_report:lost_reports(*, pet:pets(*))')
     .eq('id', id)
     .single();
 
@@ -575,11 +723,20 @@ export async function createSightingInDb(input: SightingInput): Promise<string> 
     : null;
 
   let finalDescription = input.description || '';
+  if (input.is_holding) {
+    finalDescription = `🏠 EN TRÁNSITO EN MI CASA / PATIO (El animal está a salvo esperando a su familia).\n\n${finalDescription}`;
+  } else {
+    finalDescription = `🐾 VISTO EN LA VÍA PÚBLICA (Fue visto deambulando en el lugar indicado).\n\n${finalDescription}`;
+  }
+  if (input.contact_phone && input.contact_phone.trim()) {
+    finalDescription = `${finalDescription}\n\n📞 Contacto / WhatsApp: ${input.contact_phone.trim()}`;
+  }
   if (input.reporter_name && input.reporter_name.trim()) {
     finalDescription = `${finalDescription}\n\n👤 Reportado por: ${input.reporter_name.trim()}`;
   }
 
   const { data, error } = await supabase
+
     .from('sightings')
     .insert({
       lost_report_id: validLostReportId,
@@ -607,7 +764,7 @@ export async function getSightingById(id: string) {
   const supabase = createBrowserClient();
   const { data, error } = await supabase
     .from('sightings')
-    .select('*, lost_report:lost_reports(*, pet:pets(*), profile:profiles(*))')
+    .select('*, lost_report:lost_reports(*, pet:pets(*))')
     .eq('id', id)
     .single();
 
@@ -655,7 +812,7 @@ export async function getActiveLostPetsList(): Promise<{ id: string; name: strin
   const supabase = createBrowserClient();
   const { data, error } = await supabase
     .from('lost_reports')
-    .select('id, approximate_address, contact_phone, contact_name, pet:pets(name, photos), profile:profiles(phone, full_name)')
+    .select('id, approximate_address, contact_phone, contact_name, pet:pets(name, photos)')
     .eq('status', 'ACTIVE')
     .order('created_at', { ascending: false });
 
@@ -665,8 +822,8 @@ export async function getActiveLostPetsList(): Promise<{ id: string; name: strin
     name: row.pet?.name || 'Mascota perdida',
     photo_url: row.pet?.photos?.[0] || null,
     address: row.approximate_address,
-    phone: row.contact_phone || row.profile?.phone || '',
-    owner_name: row.contact_name || row.profile?.full_name || '',
+    phone: row.contact_phone || '',
+    owner_name: row.contact_name || '',
   }));
 }
 
@@ -678,7 +835,7 @@ export async function getReportsByIdsList(type: 'lost' | 'found' | 'sighting', i
   if (type === 'lost') {
     const { data, error } = await supabase
       .from('lost_reports')
-      .select('*, pet:pets(*), profile:profiles(*)')
+      .select('*, pet:pets(*)')
       .in('id', ids)
       .order('created_at', { ascending: false });
     if (error) return [];
@@ -688,7 +845,7 @@ export async function getReportsByIdsList(type: 'lost' | 'found' | 'sighting', i
   if (type === 'found') {
     const { data, error } = await supabase
       .from('found_reports')
-      .select('*, pet:pets(*), profile:profiles(*)')
+      .select('*, pet:pets(*)')
       .in('id', ids)
       .order('created_at', { ascending: false });
     if (error) return [];
@@ -710,6 +867,24 @@ export async function getReportsByIdsList(type: 'lost' | 'found' | 'sighting', i
 
 // 10. Confirmar Reunificación de Mascota (Cambiar estado a REUNITED)
 export async function markReportAsReunitedInDb(reportId: string): Promise<boolean> {
+  // 1. Intentar a través del endpoint API con Service Role Key (evita bloqueos de RLS)
+  try {
+    const res = await fetch('/api/reports/reunited', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reportId }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data.success) {
+        return true;
+      }
+    }
+  } catch (errApi) {
+    console.warn('Aviso: endpoint /api/reports/reunited no disponible, probando llamada directa:', errApi);
+  }
+
+  // 2. Fallback directo a Supabase Client
   const supabase = createBrowserClient();
   const { error } = await supabase
     .from('lost_reports')
@@ -717,7 +892,7 @@ export async function markReportAsReunitedInDb(reportId: string): Promise<boolea
     .eq('id', reportId);
 
   if (error) {
-    console.error('Error al marcar como reunida:', error);
+    console.error('Error al marcar como reunida en Supabase:', error);
     return false;
   }
   return true;
@@ -817,4 +992,90 @@ export async function deleteAllReportsFromDb(): Promise<{ success: boolean; mess
     return { success: false, message: error?.message || 'Error al conectar con la base de datos.' };
   }
 }
+
+// 13. Obtener todas las mascotas publicadas para el Super Admin
+export async function getAllLostReportsForAdmin(): Promise<any[]> {
+  const supabase = createBrowserClient();
+  try {
+    const { data, error } = await supabase
+      .from('lost_reports')
+      .select('*, pet:pets(*)')
+      .order('created_at', { ascending: false });
+
+    if (error || !data) {
+      console.error('Error al obtener reportes para admin:', error?.message || error);
+      return [];
+    }
+
+    return data.map((row: any) => ({
+      ...row,
+      last_seen_location: parseCoordinates(row.last_seen_location),
+    }));
+  } catch (err) {
+    console.error('Error en getAllLostReportsForAdmin:', err);
+    return [];
+  }
+}
+
+// 14. Alternar estado de la publicación (ACTIVE <-> REUNITED) desde Super Admin
+export async function toggleReportStatusInDb(reportId: string, currentStatus: string): Promise<boolean> {
+  if (currentStatus !== 'REUNITED') {
+    return markReportAsReunitedInDb(reportId);
+  }
+  const supabase = createBrowserClient();
+  try {
+    const { error } = await supabase
+      .from('lost_reports')
+      .update({ status: 'ACTIVE', updated_at: new Date().toISOString() })
+      .eq('id', reportId);
+
+    if (error) {
+      console.error('Error al reactivar en Supabase:', error);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error('Error en toggleReportStatusInDb:', err);
+    return false;
+  }
+}
+
+// 15. Eliminar reporte individual desde Super Admin
+export async function deleteSingleReportFromDb(reportId: string, petId?: string): Promise<boolean> {
+  const supabase = createBrowserClient();
+  try {
+    // 1. Eliminar avistamientos vinculados
+    await supabase.from('sightings').delete().eq('lost_report_id', reportId);
+    // 2. Eliminar de lost_reports
+    const { error: repError } = await supabase.from('lost_reports').delete().eq('id', reportId);
+    if (repError) {
+      console.error('Error al eliminar lost_report:', repError);
+      return false;
+    }
+    // 3. Eliminar mascota si petId
+    if (petId) {
+      await supabase.from('pets').delete().eq('id', petId);
+    }
+    return true;
+  } catch (err) {
+    console.error('Error en deleteSingleReportFromDb:', err);
+    return false;
+  }
+}
+
+// 16. Contador de mascotas encontradas / reunidas
+export async function getReunitedCount(): Promise<number> {
+  const supabase = createBrowserClient();
+  try {
+    const { count, error } = await supabase
+      .from('lost_reports')
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'REUNITED');
+    if (error) return 0;
+    return count || 0;
+  } catch {
+    return 0;
+  }
+}
+
 

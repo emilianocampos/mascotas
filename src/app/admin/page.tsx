@@ -1,8 +1,16 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { getAdminStats, deleteAllReportsFromDb } from '@/services/reports.service';
+import Link from 'next/link';
+import { 
+  getAdminStats, 
+  deleteAllReportsFromDb,
+  getAllLostReportsForAdmin,
+  toggleReportStatusInDb,
+  deleteSingleReportFromDb
+} from '@/services/reports.service';
 import { AdminDashboardStats } from '@/types';
+import { formatTimeAgo, formatDate, getSpeciesEmoji, capitalizeWords } from '@/lib/utils';
 import { 
   ShieldCheck, 
   Lock, 
@@ -11,7 +19,7 @@ import {
   AlertCircle, 
   Eye, 
   EyeOff,
-  LogOut,
+  LogOut, 
   TrendingUp, 
   AlertTriangle, 
   CheckCircle2, 
@@ -20,7 +28,15 @@ import {
   Sparkles,
   Trash2,
   RefreshCw,
-  X
+  X,
+  Compass,
+  ExternalLink,
+  Phone,
+  Search,
+  Check,
+  RotateCcw,
+  SlidersHorizontal,
+  Dog
 } from 'lucide-react';
 
 export default function AdminPage() {
@@ -32,15 +48,39 @@ export default function AdminPage() {
   const [isLoadingLogin, setIsLoadingLogin] = useState(false);
 
   const [stats, setStats] = useState<AdminDashboardStats | null>(null);
+  const [reportsList, setReportsList] = useState<any[]>([]);
+  const [isLoadingReports, setIsLoadingReports] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'ACTIVE' | 'REUNITED'>('ALL');
+  const [actionFeedback, setActionFeedback] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteMessage, setDeleteMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  const loadData = async () => {
+    setIsLoadingReports(true);
+    try {
+      const [statsData, reportsData] = await Promise.all([
+        getAdminStats(),
+        getAllLostReportsForAdmin()
+      ]);
+      setStats(statsData);
+      setReportsList(reportsData);
+    } catch (e) {
+      console.error('Error cargando datos de admin:', e);
+    } finally {
+      setIsLoadingReports(false);
+    }
+  };
 
   useEffect(() => {
     const isAuth = localStorage.getItem('admin_auth') === 'true';
     setIsAuthenticated(isAuth);
     if (isAuth) {
-      getAdminStats().then(setStats);
+      loadData();
     }
   }, []);
 
@@ -55,7 +95,7 @@ export default function AdminPage() {
         document.cookie = 'admin_session=active; path=/; max-age=86400';
         setIsAuthenticated(true);
         setIsLoadingLogin(false);
-        getAdminStats().then(setStats);
+        loadData();
       } else {
         setIsLoadingLogin(false);
         setLoginError('Credenciales inválidas. Solo el Super Admin tiene acceso a este panel.');
@@ -72,7 +112,67 @@ export default function AdminPage() {
     setDeleteMessage(null);
   };
 
+  const handleToggleStatus = async (reportId: string, currentStatus: string, petName: string) => {
+    setTogglingId(reportId);
+    setActionFeedback(null);
+    try {
+      const ok = await toggleReportStatusInDb(reportId, currentStatus);
+      if (ok) {
+        const nextStatus = currentStatus === 'REUNITED' ? 'ACTIVE' : 'REUNITED';
+        setReportsList((prev) =>
+          prev.map((r) => (r.id === reportId ? { ...r, status: nextStatus } : r))
+        );
+        if (stats) {
+          setStats({
+            ...stats,
+            total_reunited_pets: nextStatus === 'REUNITED' ? stats.total_reunited_pets + 1 : Math.max(0, stats.total_reunited_pets - 1),
+            active_lost_reports: nextStatus === 'ACTIVE' ? stats.active_lost_reports + 1 : Math.max(0, stats.active_lost_reports - 1),
+          });
+        }
+        setActionFeedback({
+          type: 'success',
+          text: nextStatus === 'REUNITED' 
+            ? `¡"${petName}" fue marcada como ENCONTRADA y reunida con su familia! ❤️` 
+            : `¡"${petName}" fue reactivada en búsqueda activa! 🔴`
+        });
+      } else {
+        setActionFeedback({ type: 'error', text: 'No se pudo actualizar el estado de la publicación.' });
+      }
+    } catch (e: any) {
+      setActionFeedback({ type: 'error', text: e?.message || 'Error al actualizar.' });
+    } finally {
+      setTogglingId(null);
+    }
+  };
+
+  const handleDeleteSingle = async (reportId: string, petId?: string, petName: string = 'la mascota') => {
+    if (!confirm(`¿Estás seguro de que deseás eliminar permanentemente la publicación de ${petName}? Esta acción es irreversible.`)) {
+      return;
+    }
+    setDeletingId(reportId);
+    try {
+      const ok = await deleteSingleReportFromDb(reportId, petId);
+      if (ok) {
+        setReportsList((prev) => prev.filter((r) => r.id !== reportId));
+        if (stats) {
+          setStats({
+            ...stats,
+            total_lost_reports: Math.max(0, stats.total_lost_reports - 1),
+          });
+        }
+        setActionFeedback({ type: 'success', text: `Publicación de "${petName}" eliminada correctamente.` });
+      } else {
+        setActionFeedback({ type: 'error', text: 'Error al intentar eliminar la publicación.' });
+      }
+    } catch (e: any) {
+      setActionFeedback({ type: 'error', text: e?.message || 'Error al eliminar.' });
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   const handleDeleteAll = async () => {
+
     setIsDeleting(true);
     setDeleteMessage(null);
     try {
@@ -383,6 +483,306 @@ export default function AdminPage() {
 
       </div>
 
+      {/* Feedback de Acción (Marcar como encontrada, eliminar, etc) */}
+      {actionFeedback && (
+        <div
+          className={`p-4 rounded-2xl text-sm font-semibold flex items-center justify-between border animate-in fade-in duration-200 ${
+            actionFeedback.type === 'success'
+              ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-200 border-emerald-200 dark:border-emerald-800 shadow-sm'
+              : 'bg-rose-50 dark:bg-rose-950/40 text-rose-800 dark:text-rose-200 border-rose-200 dark:border-rose-800 shadow-sm'
+          }`}
+        >
+          <div className="flex items-center gap-2.5">
+            {actionFeedback.type === 'success' ? (
+              <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+            ) : (
+              <AlertCircle className="w-5 h-5 text-rose-600 shrink-0" />
+            )}
+            <span>{actionFeedback.text}</span>
+          </div>
+          <button
+            onClick={() => setActionFeedback(null)}
+            className="p-1 hover:bg-black/5 dark:hover:bg-white/5 rounded-lg text-zinc-500 cursor-pointer"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* SECCIÓN PRINCIPAL: GESTIÓN DE MASCOTAS PUBLICADAS                        */}
+      {/* ========================================================================= */}
+      <div className="space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-200 dark:border-zinc-800 pb-4">
+          <div>
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-orange-100 dark:bg-orange-950/60 text-orange-700 dark:text-orange-300 text-xs font-bold uppercase mb-1">
+              <Dog className="w-3.5 h-3.5" />
+              Control en Tiempo Real
+            </div>
+            <h2 className="text-xl sm:text-2xl font-black text-zinc-900 dark:text-white flex items-center gap-2">
+              Mascotas Publicadas
+              <span className="text-sm px-2.5 py-0.5 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 font-bold">
+                {reportsList.length}
+              </span>
+            </h2>
+            <p className="text-xs text-zinc-500">
+              Administrá las publicaciones, marcalas como encontradas cuando regresen con su familia o ubicalas en el mapa.
+            </p>
+          </div>
+
+          {/* Botón de refresco manual */}
+          <button
+            onClick={loadData}
+            disabled={isLoadingReports}
+            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 font-bold text-xs transition-colors cursor-pointer self-start sm:self-auto"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isLoadingReports ? 'animate-spin' : ''}`} />
+            Actualizar Lista
+          </button>
+        </div>
+
+        {/* Barra de Búsqueda y Filtros */}
+        <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
+          <div className="relative flex-1 max-w-md">
+            <Search className="w-4 h-4 text-zinc-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              placeholder="Buscar por nombre de mascota, calle, contacto..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-xs text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
+            <button
+              onClick={() => setStatusFilter('ALL')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors cursor-pointer whitespace-nowrap ${
+                statusFilter === 'ALL'
+                  ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900'
+                  : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200'
+              }`}
+            >
+              Todas ({reportsList.length})
+            </button>
+            <button
+              onClick={() => setStatusFilter('ACTIVE')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
+                statusFilter === 'ACTIVE'
+                  ? 'bg-rose-600 text-white shadow-xs'
+                  : 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 hover:bg-rose-100'
+              }`}
+            >
+              <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>
+              Perdidas Activas ({reportsList.filter((r) => r.status === 'ACTIVE').length})
+            </button>
+            <button
+              onClick={() => setStatusFilter('REUNITED')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
+                statusFilter === 'REUNITED'
+                  ? 'bg-emerald-600 text-white shadow-xs'
+                  : 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100'
+              }`}
+            >
+              <span>❤️</span>
+              Encontradas / Reunidas ({reportsList.filter((r) => r.status === 'REUNITED').length})
+            </button>
+          </div>
+        </div>
+
+        {/* Listado de Mascotas */}
+        {isLoadingReports ? (
+          <div className="p-12 text-center text-zinc-400 space-y-3">
+            <RefreshCw className="w-8 h-8 animate-spin mx-auto text-blue-500" />
+            <p className="text-xs font-semibold">Cargando publicaciones de mascotas...</p>
+          </div>
+        ) : (
+          (() => {
+            const filteredReports = reportsList.filter((item) => {
+              if (statusFilter === 'ACTIVE' && item.status !== 'ACTIVE') return false;
+              if (statusFilter === 'REUNITED' && item.status !== 'REUNITED') return false;
+              if (searchQuery.trim()) {
+                const q = searchQuery.toLowerCase().trim();
+                const petName = (item.pet?.name || '').toLowerCase();
+                const address = (item.approximate_address || '').toLowerCase();
+                const contactName = (item.contact_name || item.profile?.full_name || '').toLowerCase();
+                const contactPhone = (item.contact_phone || item.profile?.phone || '').toLowerCase();
+                const breed = (item.pet?.breed || '').toLowerCase();
+                return (
+                  petName.includes(q) ||
+                  address.includes(q) ||
+                  contactName.includes(q) ||
+                  contactPhone.includes(q) ||
+                  breed.includes(q)
+                );
+              }
+              return true;
+            });
+
+            if (filteredReports.length === 0) {
+              return (
+                <div className="p-10 text-center rounded-3xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 space-y-2">
+                  <span className="text-3xl">🐾</span>
+                  <h4 className="font-bold text-sm text-zinc-900 dark:text-white">
+                    No se encontraron publicaciones con ese criterio
+                  </h4>
+                  <p className="text-xs text-zinc-500">
+                    {searchQuery ? 'Probá borrando el filtro de búsqueda.' : 'No hay publicaciones registradas aún.'}
+                  </p>
+                </div>
+              );
+            }
+
+            return (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {filteredReports.map((rep) => {
+                  const pet = rep.pet;
+                  const petName = pet?.name || 'Mascota sin nombre';
+                  const isReunited = rep.status === 'REUNITED';
+                  const photo = pet?.photos?.[0] || 'https://images.unsplash.com/photo-1543466835-00a7907e9de1';
+                  const phone = rep.contact_phone || rep.profile?.phone || '';
+                  const cleanPhone = phone.replace(/\D/g, '');
+                  const lat = rep.last_seen_location?.latitude || -43.24895;
+                  const lng = rep.last_seen_location?.longitude || -65.30505;
+
+                  return (
+                    <div
+                      key={rep.id}
+                      className={`p-5 rounded-3xl border transition-all space-y-4 ${
+                        isReunited
+                          ? 'bg-emerald-50/40 dark:bg-emerald-950/10 border-emerald-200 dark:border-emerald-900/60 shadow-xs'
+                          : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 shadow-sm'
+                      }`}
+                    >
+                      <div className="flex gap-4 items-start">
+                        {/* Foto */}
+                        <div className="relative w-20 h-20 rounded-2xl overflow-hidden shrink-0 border border-zinc-200 dark:border-zinc-800 bg-zinc-100 dark:bg-zinc-800">
+                          <img src={photo} alt={petName} className="w-full h-full object-cover" />
+                          <span className="absolute bottom-1 right-1 text-sm bg-black/50 backdrop-blur-xs rounded-md px-1">
+                            {getSpeciesEmoji(pet?.species)}
+                          </span>
+                        </div>
+
+                        {/* Datos Básicos */}
+                        <div className="space-y-1 flex-1 min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            {isReunited ? (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 text-[11px] font-black uppercase">
+                                <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                Encontrada / Reunida ❤️
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 text-[11px] font-black uppercase">
+                                <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse"></span>
+                                Búsqueda Activa
+                              </span>
+                            )}
+
+                            <span className="text-[11px] text-zinc-400">
+                              {formatTimeAgo(rep.created_at)}
+                            </span>
+                          </div>
+
+                          <h3 className="font-black text-lg text-zinc-900 dark:text-white truncate">
+                            {petName}
+                          </h3>
+
+                          <p className="text-xs text-zinc-500 flex items-center gap-1 truncate">
+                            <MapPin className="w-3.5 h-3.5 text-orange-500 shrink-0" />
+                            <span>{rep.approximate_address || 'Trelew'}</span>
+                          </p>
+
+                          {phone && (
+                            <p className="text-xs text-zinc-600 dark:text-zinc-400 flex items-center gap-1">
+                              <Phone className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                              <span>{rep.contact_name ? `${rep.contact_name}: ` : ''}{phone}</span>
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Botones de Acción para Super Admin */}
+                      <div className="pt-2 border-t border-zinc-100 dark:border-zinc-800 flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                          {/* 1. Botón: Marcar como Encontrada (Permanente) */}
+                          {isReunited ? (
+                            <span className="px-3.5 py-2 rounded-xl text-xs font-black bg-emerald-100 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 flex items-center gap-1.5 shadow-xs select-none">
+                              <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                              <span>¡Mascota Encontrada! ❤️</span>
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              disabled={togglingId === rep.id}
+                              onClick={() => handleToggleStatus(rep.id, rep.status, petName)}
+                              className="px-3.5 py-2 rounded-xl text-xs font-extrabold flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer shadow-xs bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/20"
+                            >
+                              {togglingId === rep.id ? (
+                                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                              ) : (
+                                <CheckCircle2 className="w-3.5 h-3.5" />
+                              )}
+                              <span>¡Marcar como Encontrada! ❤️</span>
+                            </button>
+                          )}
+
+                          {/* 2. Botón: Ubicar en el Mapa (solo si está activa) */}
+                          {!isReunited && (
+                            <Link
+                              href={`/mapa?id=${rep.id}&lat=${lat}&lng=${lng}`}
+                              target="_blank"
+                              className="px-3 py-2 rounded-xl bg-orange-50 hover:bg-orange-100 dark:bg-orange-950/40 dark:hover:bg-orange-900/50 text-orange-700 dark:text-orange-300 font-bold text-xs flex items-center gap-1.5 transition-colors border border-orange-200 dark:border-orange-800/60"
+                            >
+                              <Compass className="w-3.5 h-3.5 text-orange-500" />
+                              <span>Ver en Mapa</span>
+                            </Link>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-1.5">
+                          {/* Ficha pública */}
+                          <Link
+                            href={`/mascotas-perdidas/${rep.id}`}
+                            target="_blank"
+                            className="p-2 rounded-xl bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-300 transition-colors"
+                            title="Ver Ficha Pública"
+                          >
+                            <ExternalLink className="w-4 h-4" />
+                          </Link>
+
+                          {/* Eliminar individual */}
+                          <button
+                            type="button"
+                            disabled={deletingId === rep.id}
+                            onClick={() => handleDeleteSingle(rep.id, rep.pet_id, petName)}
+                            className="p-2 rounded-xl text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 transition-colors cursor-pointer"
+                            title="Eliminar publicación"
+                          >
+                            {deletingId === rep.id ? (
+                              <RefreshCw className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <Trash2 className="w-4 h-4" />
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })()
+        )}
+      </div>
+
       {/* Alerta de feedback de acción */}
       {deleteMessage && (
         <div
@@ -411,6 +811,7 @@ export default function AdminPage() {
 
       {/* Zona de Mantenimiento y Control Global (Super Admin) */}
       <div className="p-6 rounded-3xl bg-rose-50/70 dark:bg-rose-950/20 border-2 border-dashed border-rose-200 dark:border-rose-900/50 space-y-4">
+
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="space-y-1">
             <h3 className="font-black text-base text-rose-900 dark:text-rose-200 flex items-center gap-2">

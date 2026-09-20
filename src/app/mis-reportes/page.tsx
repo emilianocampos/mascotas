@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { LostReport, FoundReport } from '@/types';
 import { 
@@ -16,14 +17,19 @@ import {
   MapPin,
   Printer,
   Smartphone,
-  AlertCircle
+  AlertCircle,
+  KeyRound,
+  Search
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { getMyReportIds, saveCreatedReportId } from '@/lib/device-storage';
 import { getReportsByIdsList, markReportAsReunitedInDb } from '@/services/reports.service';
 import { formatTimeAgo, formatDate, getSpeciesEmoji } from '@/lib/utils';
 
-export default function MisReportesPage() {
+function MisReportesInner() {
+  const searchParams = useSearchParams();
+  const urlCode = searchParams.get('code');
+
   const [selectedTab, setSelectedTab] = useState<'lost' | 'found' | 'sightings'>('lost');
   const [isLoading, setIsLoading] = useState(true);
 
@@ -59,8 +65,12 @@ export default function MisReportesPage() {
   };
 
   useEffect(() => {
-    loadReports();
-  }, []);
+    if (urlCode) {
+      handleLinkManualId(undefined, urlCode);
+    } else {
+      loadReports();
+    }
+  }, [urlCode]);
 
   const handleMarkReunited = async (id: string, name: string) => {
     if (confirm(`¿Confirmás que ${name} ya fue reunida con su familia? ❤️`)) {
@@ -80,14 +90,20 @@ export default function MisReportesPage() {
     }
   };
 
-  const handleLinkManualId = (e: React.FormEvent) => {
-    e.preventDefault();
-    const idToLink = linkInputId.trim();
-    if (!idToLink) return;
+  const handleLinkManualId = (e?: React.FormEvent, customCode?: string) => {
+    if (e) e.preventDefault();
+    let raw = (customCode || linkInputId).trim();
+    if (!raw) return;
 
-    saveCreatedReportId('lost', idToLink);
-    saveCreatedReportId('found', idToLink);
-    setLinkMessage('¡Publicación vinculada con éxito a este dispositivo!');
+    // Si pegaron una URL completa tipo /mascotas-perdidas/uuid
+    if (raw.includes('/')) {
+      const parts = raw.split('/').filter(Boolean);
+      raw = parts[parts.length - 1] || raw;
+    }
+
+    saveCreatedReportId('lost', raw);
+    saveCreatedReportId('found', raw);
+    setLinkMessage(`¡Publicación vinculada con éxito! Ya podés gestionarla aquí abajo.`);
     setLinkInputId('');
     loadReports();
   };
@@ -100,14 +116,14 @@ export default function MisReportesPage() {
         <div>
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-orange-100 dark:bg-orange-950/60 text-orange-700 dark:text-orange-300 text-xs font-bold uppercase mb-1">
             <Smartphone className="w-3.5 h-3.5" />
-            Vinculado a este Celular / Dispositivo
+            Panel de Gestión de Publicaciones
           </div>
           <h1 className="text-2xl sm:text-3xl font-black text-zinc-900 dark:text-white flex items-center gap-2">
             <FileText className="w-7 h-7 text-orange-500" />
-            Panel de Mis Publicaciones
+            Mis Reportes
           </h1>
           <p className="text-sm text-zinc-500">
-            Gestioná únicamente las alertas creadas desde tu equipo, confirmá cuando regresaron a casa e imprimí sus carteles.
+            Gestioná tus alertas creadas, confirmá cuando tu mascota regresó a casa e imprimí sus carteles.
           </p>
         </div>
 
@@ -119,6 +135,48 @@ export default function MisReportesPage() {
           Nueva Publicación
         </Link>
       </div>
+
+      {/* Input de Código Único de Gestión */}
+      <div className="p-6 rounded-3xl bg-linear-to-br from-orange-50 to-amber-50 dark:from-orange-950/30 dark:to-zinc-900 border border-orange-200 dark:border-orange-800 shadow-xs space-y-3">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-xl bg-orange-500 text-white flex items-center justify-center font-bold text-sm shadow-xs">
+            <KeyRound className="w-4 h-4" />
+          </div>
+          <div>
+            <h3 className="text-sm font-black text-zinc-900 dark:text-white">
+              ¿Tenés el código único de tu publicación?
+            </h3>
+            <p className="text-xs text-zinc-500">
+              Ingresalo acá para acceder a la administración de tu mascota y marcarla como encontrada.
+            </p>
+          </div>
+        </div>
+
+        <form onSubmit={handleLinkManualId} className="flex flex-col sm:flex-row gap-2 pt-1">
+          <input
+            type="text"
+            placeholder="Pegá el código único o ID (ej: d9b7c...)..."
+            value={linkInputId}
+            onChange={(e) => setLinkInputId(e.target.value)}
+            className="flex-1 px-4 py-3 rounded-2xl border border-orange-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-xs text-zinc-900 dark:text-zinc-100 font-mono focus:outline-none focus:ring-2 focus:ring-orange-500 shadow-xs"
+          />
+          <button
+            type="submit"
+            className="px-6 py-3 rounded-2xl bg-orange-600 hover:bg-orange-700 text-white font-extrabold text-xs shadow-md transition-all active:scale-95 shrink-0 cursor-pointer flex items-center justify-center gap-1.5"
+          >
+            <Search className="w-3.5 h-3.5" />
+            <span>Gestionar Publicación</span>
+          </button>
+        </form>
+
+        {linkMessage && (
+          <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-xs text-emerald-700 dark:text-emerald-300 font-bold flex items-center gap-2 animate-in fade-in">
+            <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+            <span>{linkMessage}</span>
+          </div>
+        )}
+      </div>
+
 
       {/* Tabs */}
       <div className="flex items-center gap-2 border-b border-zinc-200 dark:border-zinc-800 pb-2 overflow-x-auto no-scrollbar">
@@ -414,5 +472,20 @@ export default function MisReportesPage() {
       </div>
 
     </div>
+  );
+}
+
+export default function MisReportesPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="max-w-5xl mx-auto px-4 py-16 text-center text-zinc-500 space-y-2">
+          <div className="w-8 h-8 border-3 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+          <p className="text-xs font-semibold">Cargando panel de mis reportes...</p>
+        </div>
+      }
+    >
+      <MisReportesInner />
+    </Suspense>
   );
 }

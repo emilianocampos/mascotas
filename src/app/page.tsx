@@ -15,7 +15,8 @@ import {
 import { getNearbyLostReports, getNearbyFoundReports, getAdminStats } from '@/services/reports.service';
 import { PetReportCard } from '@/components/cards/PetReportCard';
 
-export const revalidate = 60; // ISR cada 60 segundos
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 export default async function HomePage() {
   const [lostReports, foundReports, stats] = await Promise.all([
@@ -47,8 +48,8 @@ export default async function HomePage() {
             Publicá en 60 segundos, informá un avistamiento geolocalizado o explorá el mapa en tiempo real.
           </p>
 
-          {/* 4 BOTONES DE ACCIÓN PRINCIPALES */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 pt-4 sm:pt-6 max-w-5xl mx-auto">
+          {/* 3 BOTONES DE ACCIÓN PRINCIPALES UNIFICADOS */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 pt-4 sm:pt-6 max-w-4xl mx-auto">
             
             {/* 1. PERDÍ UNA MASCOTA */}
             <Link
@@ -59,7 +60,7 @@ export default async function HomePage() {
               <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-red-50 dark:bg-red-950/60 border border-red-200/60 dark:border-red-900/60 flex items-center justify-center mb-2.5 text-red-600 dark:text-red-400 group-hover:scale-110 group-hover:bg-red-100 transition-transform">
                 <PlusCircle className="w-7 h-7 sm:w-8 sm:h-8" />
               </div>
-              <span className="text-xs sm:text-base font-extrabold uppercase tracking-tight text-zinc-900 dark:text-zinc-100 group-hover:text-red-600 transition-colors">
+              <span className="text-sm sm:text-base font-extrabold uppercase tracking-tight text-zinc-900 dark:text-zinc-100 group-hover:text-red-600 transition-colors">
                 Perdí mi mascota
               </span>
               <span className="text-[10px] sm:text-xs font-semibold text-red-600 dark:text-red-400 mt-0.5">
@@ -67,24 +68,7 @@ export default async function HomePage() {
               </span>
             </Link>
 
-            {/* 2. ENCONTRÉ UNA MASCOTA */}
-            <Link
-              id="tour-btn-found"
-              href="/publicar/encontrada"
-              className="group relative flex flex-col items-center justify-center p-4 sm:p-5 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm hover:shadow-xl hover:border-emerald-500/50 dark:hover:border-emerald-500/50 transform active:scale-95 transition-all text-center"
-            >
-              <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200/60 dark:border-emerald-900/60 flex items-center justify-center mb-2.5 text-emerald-600 dark:text-emerald-400 group-hover:scale-110 group-hover:bg-emerald-100 transition-transform">
-                <HeartHandshake className="w-7 h-7 sm:w-8 sm:h-8" />
-              </div>
-              <span className="text-xs sm:text-base font-extrabold uppercase tracking-tight text-zinc-900 dark:text-zinc-100 group-hover:text-emerald-600 transition-colors">
-                La encontré
-              </span>
-              <span className="text-[10px] sm:text-xs font-semibold text-emerald-600 dark:text-emerald-400 mt-0.5">
-                🏠 La tengo en tránsito
-              </span>
-            </Link>
-
-            {/* 3. VI UNA MASCOTA (AVISTAMIENTO) */}
+            {/* 2. VI / ENCONTRÉ UNA MASCOTA (UNIFICADO: TRÁNSITO O CALLE) */}
             <Link
               id="tour-btn-sighting"
               href="/publicar/avistamiento"
@@ -93,15 +77,15 @@ export default async function HomePage() {
               <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-amber-50 dark:bg-amber-950/60 border border-amber-200/60 dark:border-amber-900/60 flex items-center justify-center mb-2.5 text-amber-600 dark:text-amber-400 group-hover:scale-110 group-hover:bg-amber-100 transition-transform">
                 <Eye className="w-7 h-7 sm:w-8 sm:h-8" />
               </div>
-              <span className="text-xs sm:text-base font-extrabold uppercase tracking-tight text-zinc-900 dark:text-zinc-100 group-hover:text-amber-600 transition-colors">
-                Vi una mascota
+              <span className="text-sm sm:text-base font-extrabold uppercase tracking-tight text-zinc-900 dark:text-zinc-100 group-hover:text-amber-600 transition-colors">
+                Vi / Encontré una mascota
               </span>
-              <span className="text-[10px] sm:text-xs font-semibold text-amber-600 dark:text-amber-400 mt-0.5">
-                🟡 Avisar en la calle
+              <span className="text-[10px] sm:text-xs font-semibold text-amber-700 dark:text-amber-400 mt-0.5">
+                🏠 En tránsito o 🟡 en la calle
               </span>
             </Link>
 
-            {/* 4. EXPLORAR MAPA */}
+            {/* 3. EXPLORAR MAPA */}
             <Link
               id="tour-btn-map"
               href="/mapa"
@@ -110,7 +94,7 @@ export default async function HomePage() {
               <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-orange-50 dark:bg-orange-950/60 border border-orange-200/60 dark:border-orange-900/60 flex items-center justify-center mb-2.5 text-orange-500 dark:text-orange-400 group-hover:scale-110 group-hover:bg-orange-100 transition-transform">
                 <Compass className="w-7 h-7 sm:w-8 sm:h-8" />
               </div>
-              <span className="text-xs sm:text-base font-extrabold uppercase tracking-tight text-zinc-900 dark:text-zinc-100 group-hover:text-orange-600 transition-colors">
+              <span className="text-sm sm:text-base font-extrabold uppercase tracking-tight text-zinc-900 dark:text-zinc-100 group-hover:text-orange-600 transition-colors">
                 Explorar Mapa
               </span>
               <span className="text-[10px] sm:text-xs font-semibold text-orange-600 dark:text-orange-400 mt-0.5">
@@ -119,6 +103,7 @@ export default async function HomePage() {
             </Link>
 
           </div>
+
 
           {/* Métricas Reales en Vivo */}
           <div className="grid grid-cols-3 gap-2 sm:gap-4 pt-8 max-w-xl mx-auto border-t border-zinc-200/80 dark:border-zinc-800/80">

@@ -6,9 +6,10 @@ interface MiniLocationMapProps {
   latitude: number;
   longitude: number;
   title?: string;
+  isHolding?: boolean;
 }
 
-export default function MiniLocationMap({ latitude, longitude, title }: MiniLocationMapProps) {
+export default function MiniLocationMap({ latitude, longitude, title, isHolding = false }: MiniLocationMapProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
 
@@ -41,13 +42,18 @@ export default function MiniLocationMap({ latitude, longitude, title }: MiniLoca
         maxZoom: 19,
       }).addTo(map);
 
-      // Marcador personalizado de avistamiento (amarillo / amber)
+      // Marcador personalizado: Verde con 🏠 si está en tránsito, Amarillo con 🐾 si fue visto en la calle
+      const markerColor = isHolding ? '#10b981' : '#f59e0b';
+      const markerShadow = isHolding ? 'rgba(16,185,129,0.5)' : 'rgba(245,158,11,0.5)';
+      const markerEmoji = isHolding ? '🏠' : '🐾';
+      const circleFill = isHolding ? '#34d399' : '#fbbf24';
+
       const customHtml = `
         <div style="width: 34px; height: 42px; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: flex-start;">
-          <div style="width: 32px; height: 32px; border-radius: 12px; background-color: #f59e0b; border: 2.5px solid #ffffff; box-shadow: 0 4px 12px rgba(245,158,11,0.5); display: flex; items-align: center; justify-content: center; font-size: 16px; line-height: 28px; text-align: center;">
-            🟡
+          <div style="width: 32px; height: 32px; border-radius: 12px; background-color: ${markerColor}; border: 2.5px solid #ffffff; box-shadow: 0 4px 12px ${markerShadow}; display: flex; align-items: center; justify-content: center; font-size: 16px; line-height: 28px; text-align: center;">
+            ${markerEmoji}
           </div>
-          <div style="width: 10px; height: 10px; background-color: #f59e0b; border-right: 2.5px solid #ffffff; border-bottom: 2.5px solid #ffffff; transform: rotate(45deg); margin-top: -5px;"></div>
+          <div style="width: 10px; height: 10px; background-color: ${markerColor}; border-right: 2.5px solid #ffffff; border-bottom: 2.5px solid #ffffff; transform: rotate(45deg); margin-top: -5px;"></div>
         </div>
       `;
 
@@ -61,15 +67,15 @@ export default function MiniLocationMap({ latitude, longitude, title }: MiniLoca
 
       const marker = L.marker([latitude, longitude], { icon }).addTo(map);
       if (title) {
-        marker.bindPopup(`<b>${title}</b>`);
+        marker.bindPopup(`<b>${title}</b><br/><span style="font-size: 11px;">${isHolding ? '🏠 En tránsito en domicilio' : '🐾 Visto en la vía pública'}</span>`);
       }
 
       // Círculo de área aproximada
       L.circle([latitude, longitude], {
-        color: '#f59e0b',
-        fillColor: '#fbbf24',
+        color: markerColor,
+        fillColor: circleFill,
         fillOpacity: 0.15,
-        radius: 100,
+        radius: isHolding ? 80 : 120,
       }).addTo(map);
 
       mapInstanceRef.current = map;
@@ -84,7 +90,7 @@ export default function MiniLocationMap({ latitude, longitude, title }: MiniLoca
         mapInstanceRef.current = null;
       }
     };
-  }, [latitude, longitude, title]);
+  }, [latitude, longitude, title, isHolding]);
 
   return <div ref={mapContainerRef} className="w-full h-full min-h-[250px] z-0" />;
 }

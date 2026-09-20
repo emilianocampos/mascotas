@@ -1,11 +1,12 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
-import { getNearbyLostReports, getNearbyFoundReports, getMapMarkers } from '@/services/reports.service';
+import { getUnifiedMapData } from '@/services/reports.service';
 import { createClient as createBrowserClient } from '@/lib/supabase/client';
-import { LostReport, FoundReport, MapMarkerItem, PetSpecies } from '@/types';
+import { LostReport, MapMarkerItem, PetSpecies } from '@/types';
 import { PetReportCard } from '@/components/cards/PetReportCard';
 import { 
   Compass, 
@@ -15,7 +16,8 @@ import {
   SlidersHorizontal,
   ChevronDown,
   List,
-  Loader2
+  Loader2,
+  CheckCircle2
 } from 'lucide-react';
 
 // Dynamic import of InteractiveMap to avoid SSR issues with Leaflet window object
@@ -32,27 +34,42 @@ const InteractiveMap = dynamic(
   }
 );
 
-export default function MapaPage() {
+function MapaInner() {
+  const searchParams = useSearchParams();
+  const urlId = searchParams.get('id');
+  const urlLat = searchParams.get('lat') ? parseFloat(searchParams.get('lat')!) : null;
+  const urlLng = searchParams.get('lng') ? parseFloat(searchParams.get('lng')!) : null;
+
   const [markers, setMarkers] = useState<MapMarkerItem[]>([]);
   const [lostReports, setLostReports] = useState<LostReport[]>([]);
-  const [selectedMarkerId, setSelectedMarkerId] = useState<string | null>(null);
+  const [selectedMarkerId, setSelectedMarkerId] = useState<string | null>(urlId || null);
+  const [reunitedCount, setReunitedCount] = useState<number>(0);
   const [speciesFilter, setSpeciesFilter] = useState<PetSpecies | 'all'>('all');
-  const [radiusFilter, setRadiusFilter] = useState<number>(5000); // 5km
+  const [radiusFilter, setRadiusFilter] = useState<number>(urlId ? 50000 : 25000); // radio amplio para abarcar Trelew y costa
   const [mobileView, setMobileView] = useState<'map' | 'list'>('map');
   const [isLoading, setIsLoading] = useState<boolean>(true);
+
+  useEffect(() => {
+    if (urlId) {
+      setSelectedMarkerId(urlId);
+    }
+  }, [urlId]);
 
   useEffect(() => {
     let isMounted = true;
     async function loadData(showLoader = false) {
       if (showLoader && isMounted) setIsLoading(true);
       try {
-        const [markerData, lostData] = await Promise.all([
-          getMapMarkers(),
-          getNearbyLostReports(-43.24895, -65.30505, radiusFilter, speciesFilter),
-        ]);
+        const centerLat = urlLat || -43.24895;
+        const centerLng = urlLng || -65.30505;
+
+        const { markers: markerData, lostReports: lostData, reunitedCount: countReunited } =
+          await getUnifiedMapData(centerLat, centerLng, radiusFilter, speciesFilter);
+
         if (isMounted) {
           setMarkers(markerData);
           setLostReports(lostData);
+          setReunitedCount(countReunited);
         }
       } catch (err) {
         console.error('Error al cargar datos del mapa:', err);
@@ -83,11 +100,17 @@ export default function MapaPage() {
       isMounted = false;
       supabase.removeChannel(channel);
     };
-  }, [speciesFilter, radiusFilter]);
+  }, [speciesFilter, radiusFilter, urlLat, urlLng]);
 
   const handleMarkerSelect = React.useCallback((marker: MapMarkerItem) => {
     setSelectedMarkerId(marker.marker_id);
   }, []);
+
+  const mapCenter: [number, number] = urlLat && urlLng 
+    ? [urlLat, urlLng] 
+    : [-43.24895, -65.30505];
+
+  const mapZoom = urlLat && urlLng ? 16 : 14;
 
   return (
     <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-4 sm:space-y-6">
@@ -99,9 +122,17 @@ export default function MapaPage() {
             <Compass className="w-6 h-6 sm:w-7 sm:h-7 text-orange-500" />
             Mapa Interactivo de Búsqueda
           </h1>
-          <p className="text-xs sm:text-sm text-zinc-500">
-            Animales perdidos 🔴, encontrados 🟢 y avistamientos 🟡 en Trelew.
-          </p>
+          <div className="flex flex-wrap items-center gap-2 mt-1">
+            <p className="text-xs sm:text-sm text-zinc-500">
+              Mascotas perdidas 🔴 y avistamientos en la vía pública 🟡 en Trelew.
+            </p>
+            {reunitedCount > 0 && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 text-xs font-black shadow-xs">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                {reunitedCount} mascotas encontradas y devueltas a casa ❤️
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Controles de Filtro por Especie y Radio */}
@@ -126,11 +157,11 @@ export default function MapaPage() {
             onChange={(e) => setRadiusFilter(Number(e.target.value))}
             className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-xs font-bold rounded-xl px-2.5 sm:px-3 py-2 text-zinc-700 dark:text-zinc-300 shadow-xs focus:outline-none cursor-pointer shrink-0"
           >
-            <option value={1000}>1 km</option>
-            <option value={2000}>2 km</option>
+            <option value={2000}>2 km (Inmediato)</option>
             <option value={5000}>5 km (Centro)</option>
             <option value={10000}>10 km (Trelew)</option>
-            <option value={25000}>25 km (+ Valle)</option>
+            <option value={25000}>25 km (Trelew y alrededores)</option>
+            <option value={50000}>50 km (Valle y Costa)</option>
           </select>
         </div>
       </div>
@@ -170,6 +201,8 @@ export default function MapaPage() {
         <div className={`lg:col-span-2 ${mobileView === 'list' ? 'hidden lg:block' : 'block'}`}>
           <InteractiveMap
             markers={markers}
+            center={mapCenter}
+            zoom={mapZoom}
             selectedMarkerId={selectedMarkerId}
             onMarkerSelect={handleMarkerSelect}
             height="520px"
@@ -239,3 +272,19 @@ export default function MapaPage() {
     </div>
   );
 }
+
+export default function MapaPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="w-full h-[520px] bg-zinc-100 dark:bg-zinc-900 rounded-2xl flex items-center justify-center text-zinc-400">
+          <Compass className="w-8 h-8 animate-spin text-orange-500 mr-2" />
+          <span>Cargando mapa...</span>
+        </div>
+      }
+    >
+      <MapaInner />
+    </Suspense>
+  );
+}
+

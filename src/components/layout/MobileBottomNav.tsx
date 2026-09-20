@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Compass, PlusCircle, HeartHandshake, FileText } from 'lucide-react';
+import { Home, Compass, PlusCircle, Eye, FileText } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export function MobileBottomNav() {
@@ -13,9 +13,10 @@ export function MobileBottomNav() {
     { href: '/', label: 'Inicio', icon: Home },
     { href: '/publicar/perdida', label: 'Perdí', icon: PlusCircle },
     { href: '/mapa', label: 'Mapa', icon: Compass, isMain: true },
-    { href: '/publicar/encontrada', label: 'Encontré / Vi', icon: HeartHandshake },
+    { href: '/publicar/avistamiento', label: 'Vi / Encontré', icon: Eye },
     { href: '/mis-reportes', label: 'Mis Reportes', icon: FileText },
   ];
+
 
   return (
     <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-lg border-t border-zinc-200 dark:border-zinc-800 pb-safe">

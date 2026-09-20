@@ -18,6 +18,9 @@ export const sightingSchema = z.object({
     message: 'Por favor describí hacia dónde iba o qué viste (mínimo 5 caracteres)',
   }).min(5, 'Por favor describí hacia dónde iba o qué viste (mínimo 5 caracteres)').max(600),
   reporter_name: z.string().max(70).optional().nullable(),
+  contact_phone: z.string().max(50).optional().nullable(),
+  is_holding: z.boolean().optional(),
 });
 
 export type SightingInput = z.infer<typeof sightingSchema>;
+

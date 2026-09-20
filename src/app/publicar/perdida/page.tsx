@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import PhotoUploader from '@/components/forms/PhotoUploader';
 import LocationPicker from '@/components/map/LocationPicker';
 import { lostReportSchema, LostReportInput } from '@/lib/validations/lost-report.schema';
@@ -83,9 +84,11 @@ export default function PublicarPerdidaPage() {
     }
   };
 
+  const [copiedCode, setCopiedCode] = useState(false);
+
   if (successId) {
     return (
-      <div className="max-w-xl mx-auto px-4 py-16 text-center space-y-6 animate-in fade-in zoom-in-95 duration-300">
+      <div className="max-w-xl mx-auto px-4 py-12 text-center space-y-6 animate-in fade-in zoom-in-95 duration-300">
         <div className="w-20 h-20 bg-emerald-100 dark:bg-emerald-950/60 rounded-full flex items-center justify-center text-emerald-600 dark:text-emerald-400 mx-auto shadow-lg shadow-emerald-500/20">
           <CheckCircle2 className="w-10 h-10" />
         </div>
@@ -99,7 +102,40 @@ export default function PublicarPerdidaPage() {
           </p>
         </div>
 
-        <div className="flex flex-col sm:flex-row gap-3 justify-center pt-4">
+        {/* Tarjeta de Código Único de Gestión */}
+        <div className="p-5 rounded-2xl bg-orange-50 dark:bg-orange-950/40 border border-orange-200 dark:border-orange-800 text-left space-y-3 shadow-xs">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-black uppercase text-orange-800 dark:text-orange-300 tracking-wider flex items-center gap-1.5">
+              <span>🔑</span> Código Único de Gestión
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                navigator.clipboard.writeText(successId);
+                setCopiedCode(true);
+                setTimeout(() => setCopiedCode(false), 2500);
+              }}
+              className="px-3 py-1 text-xs font-extrabold rounded-lg bg-orange-600 hover:bg-orange-700 text-white transition-colors cursor-pointer"
+            >
+              {copiedCode ? '¡Copiado! ✓' : 'Copiar Código'}
+            </button>
+          </div>
+          <div className="font-mono text-xs font-bold bg-white dark:bg-zinc-900 p-3 rounded-xl border border-orange-200 dark:border-orange-900/60 select-all break-all text-orange-950 dark:text-orange-200">
+            {successId}
+          </div>
+          <p className="text-[11px] text-zinc-600 dark:text-zinc-400 leading-relaxed">
+            Guardá este código. Podés ingresarlo en <Link href={`/mis-reportes?code=${successId}`} className="font-bold underline text-orange-600 dark:text-orange-400">Mis Reportes</Link> para administrar tu publicación desde cualquier equipo y marcar a tu mascota como encontrada cuando vuelva a casa.
+          </p>
+        </div>
+
+        <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
+          <Link
+            href={`/mis-reportes?code=${successId}`}
+            className="px-5 py-3 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-bold text-xs shadow-md transition-all active:scale-95 flex items-center justify-center gap-2"
+          >
+            <span>🔑</span> Administrar en Mis Reportes
+          </Link>
+
           <button
             onClick={() => {
               const url = `${window.location.origin}/mascotas-perdidas/${successId}`;
@@ -114,21 +150,21 @@ export default function PublicarPerdidaPage() {
                 alert('¡Enlace copiado al portapapeles!');
               }
             }}
-            className="px-6 py-3.5 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-bold text-sm shadow-md transition-all active:scale-95 cursor-pointer"
+            className="px-5 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-1.5"
           >
-            📢 Compartir en WhatsApp
+            📢 Compartir WhatsApp
           </button>
 
           <button
             onClick={() => router.push('/mapa')}
-            className="px-6 py-3.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm shadow-md transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-2"
+            className="px-5 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-1.5"
           >
-            🗺️ Ver en el Mapa en Vivo
+            🗺️ Ver en Mapa
           </button>
 
           <button
             onClick={() => router.push(`/mascotas-perdidas/${successId}`)}
-            className="px-6 py-3.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-white font-bold text-sm transition-all cursor-pointer"
+            className="px-5 py-3 rounded-xl bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-white font-bold text-xs transition-all cursor-pointer"
           >
             Ver Ficha
           </button>

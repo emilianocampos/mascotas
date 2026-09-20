@@ -12,8 +12,10 @@ import {
   X,
   Compass,
   FileText,
-  HeartHandshake
+  HeartHandshake,
+  Eye
 } from 'lucide-react';
+
 import { cn } from '@/lib/utils';
 
 export function Navbar() {
@@ -24,7 +26,7 @@ export function Navbar() {
   const navLinks = [
     { href: '/mapa', label: 'Mapa Interactivo', icon: Compass },
     { href: '/publicar/perdida', label: 'Perdí mi mascota', icon: PlusCircle, highlight: 'lost' },
-    { href: '/publicar/encontrada', label: 'Encontré una mascota', icon: HeartHandshake, highlight: 'found' },
+    { href: '/publicar/avistamiento', label: 'Vi / Encontré una mascota', icon: Eye, highlight: 'sighting' },
     { href: '/mis-reportes', label: 'Mis Reportes', icon: FileText },
     { href: '/admin', label: 'Panel Moderador', icon: ShieldCheck },
   ];
@@ -95,12 +97,13 @@ export function Navbar() {
             </Link>
 
             <Link
-              href="/publicar/encontrada"
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-semibold bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:hover:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 transition-colors"
+              href="/publicar/avistamiento"
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-semibold bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 dark:hover:bg-amber-900/50 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800 transition-colors"
             >
-              <HeartHandshake className="w-4 h-4 text-emerald-600" />
-              Encontré / Vi una mascota
+              <Eye className="w-4 h-4 text-amber-600" />
+              Vi / Encontré una mascota
             </Link>
+
 
             <Link
               id="tour-nav-my-reports"
