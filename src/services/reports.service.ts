@@ -398,7 +398,7 @@ export async function getFoundReportById(id: string): Promise<FoundReport | null
   const supabase = createBrowserClient();
   const { data, error } = await supabase
     .from('found_reports')
-    .select('*, pet:pets(*)')
+    .select('*, pet:pets(*), profile:profiles(*)')
     .eq('id', id)
     .single();
 
@@ -426,7 +426,7 @@ export async function getUnifiedReportById(id: string): Promise<UnifiedReport | 
   const supabase = createBrowserClient();
   const { data: sighting, error: sError } = await supabase
     .from('sightings')
-    .select('*, lost_report:lost_reports(*, pet:pets(*))')
+    .select('*, lost_report:lost_reports(*, pet:pets(*), profile:profiles(*)), profile:profiles(*)')
     .eq('id', id)
     .single();
 
@@ -441,6 +441,18 @@ export async function getUnifiedReportById(id: string): Promise<UnifiedReport | 
 
     // Avistamiento general no vinculado a un reporte específico
     const loc = parseCoordinates(sighting.location);
+    const reporterPhoneMatch = typeof sighting.description === 'string' 
+      ? (
+          sighting.description.match(/(?:Contacto \/ WhatsApp:|WhatsApp:|Teléfono:|Tel:|Celular:|Cel:|📞)\s*([0-9+\s\-()]{6,25})/i) ||
+          sighting.description.match(/(?:(?:280|549280|\+549280)\s*[\d\s\-]{6,12})/i)
+        )
+      : null;
+    const phone = sighting.contact_phone || (reporterPhoneMatch ? (reporterPhoneMatch[1] || reporterPhoneMatch[0]).trim() : '') || sighting.profile?.phone || '';
+    const reporterNameMatch = typeof sighting.description === 'string'
+      ? sighting.description.match(/(?:Reportado por:|👤)\s*([^\n\r]+)/i)
+      : null;
+    const repName = sighting.reporter_name || (reporterNameMatch ? reporterNameMatch[1].trim() : '') || 'Vecino solidario';
+
     return {
       id: sighting.id,
       user_id: sighting.user_id || '',
@@ -450,7 +462,9 @@ export async function getUnifiedReportById(id: string): Promise<UnifiedReport | 
       last_seen_location: loc,
       approximate_address: sighting.approximate_address,
       description: sighting.description || 'Avistamiento reportado en la vía pública',
-      contact_phone_public: false,
+      contact_phone: phone,
+      contact_name: repName,
+      contact_phone_public: Boolean(phone),
       views_count: 0,
       created_at: sighting.created_at || sighting.sighting_date,
       updated_at: sighting.created_at || sighting.sighting_date,
@@ -699,6 +713,8 @@ export async function createFoundReportInDb(input: FoundReportInput): Promise<st
       approximate_address: formattedFoundAddress,
       is_holding: input.is_holding,
       description: input.description,
+      contact_name: input.contact_name || null,
+      contact_phone: input.contact_phone || null,
       status: 'ACTIVE',
     })
     .select('id')
@@ -904,7 +920,18 @@ export async function getAdminStats(): Promise<AdminDashboardStats> {
 
   const { data: rpcData, error: rpcError } = await supabase.rpc('get_admin_dashboard_stats');
   if (!rpcError && rpcData) {
-    return rpcData as AdminDashboardStats;
+    const rpcStats = rpcData as AdminDashboardStats;
+    // Asegurar que total_sightings compute tanto sightings como found_reports
+    const combinedSightings = (rpcStats.total_sightings || 0) + (rpcStats.total_found_reports || 0);
+    const combinedSightingsRecent = (rpcStats.recent_activity_last_7_days?.sightings_created || 0) + (rpcStats.recent_activity_last_7_days?.found_created || 0);
+    return {
+      ...rpcStats,
+      total_sightings: combinedSightings,
+      recent_activity_last_7_days: {
+        ...rpcStats.recent_activity_last_7_days,
+        sightings_created: combinedSightingsRecent,
+      }
+    };
   }
 
   // Cálculo directo en Supabase si aún no ejecutaste la función RPC
@@ -919,12 +946,14 @@ export async function getAdminStats(): Promise<AdminDashboardStats> {
     supabase.from('moderation_reports').select('*', { count: 'exact', head: true }).eq('resolved', false),
   ]);
 
+  const combinedSightingsFallback = (sightingsCount.count || 0) + (foundCount.count || 0);
+
   return {
     total_lost_reports: lostCount.count || 0,
     active_lost_reports: lostActive.count || 0,
     total_found_reports: foundCount.count || 0,
     active_found_reports: foundActive.count || 0,
-    total_sightings: sightingsCount.count || 0,
+    total_sightings: combinedSightingsFallback,
     total_reunited_pets: reunitedCount.count || 0,
     total_users: profilesCount.count || 0,
     total_pending_moderations: moderationCount.count || 0,
@@ -937,7 +966,7 @@ export async function getAdminStats(): Promise<AdminDashboardStats> {
     recent_activity_last_7_days: {
       lost_created: lostCount.count || 0,
       found_created: foundCount.count || 0,
-      sightings_created: sightingsCount.count || 0,
+      sightings_created: combinedSightingsFallback,
       reunited_count: reunitedCount.count || 0,
     },
   };
@@ -993,66 +1022,164 @@ export async function deleteAllReportsFromDb(): Promise<{ success: boolean; mess
   }
 }
 
-// 13. Obtener todas las mascotas publicadas para el Super Admin
-export async function getAllLostReportsForAdmin(): Promise<any[]> {
+// 13. Obtener todas las mascotas publicadas para el Super Admin (Perdidas, Encontradas y Avistamientos)
+export async function getAllReportsForAdmin(): Promise<any[]> {
   const supabase = createBrowserClient();
   try {
-    const { data, error } = await supabase
-      .from('lost_reports')
-      .select('*, pet:pets(*)')
-      .order('created_at', { ascending: false });
+    const [lostRes, foundRes, sightingRes] = await Promise.all([
+      supabase
+        .from('lost_reports')
+        .select('id, pet_id, user_id, status, approximate_address, last_seen_date, last_seen_location, created_at, contact_phone, contact_name, description, pet:pets(name, species, breed, photos)')
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('found_reports')
+        .select('id, pet_id, finder_id, status, approximate_address, found_date, found_location, created_at, is_holding, contact_phone, contact_name, description, pet:pets(name, species, breed, photos)')
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('sightings')
+        .select('id, lost_report_id, user_id, status, approximate_address, sighting_date, location, created_at, description, photo_url, lost_report:lost_reports(id, contact_phone, contact_name, pet:pets(name, species, photos))')
+        .order('created_at', { ascending: false }),
+    ]);
 
-    if (error || !data) {
-      console.error('Error al obtener reportes para admin:', error?.message || error);
-      return [];
-    }
-
-    return data.map((row: any) => ({
+    const lostItems = (lostRes.data || []).map((row: any) => ({
       ...row,
+      publication_type: 'lost',
       last_seen_location: parseCoordinates(row.last_seen_location),
     }));
+
+    const foundItems = (foundRes.data || []).map((row: any) => ({
+      ...row,
+      publication_type: 'found',
+      found_location: parseCoordinates(row.found_location),
+      last_seen_location: parseCoordinates(row.found_location),
+    }));
+
+    const sightingItems = (sightingRes.data || []).map((row: any) => {
+      const reporterPhoneMatch = typeof row.description === 'string'
+        ? (
+            row.description.match(/(?:Contacto \/ WhatsApp:|WhatsApp:|Teléfono:|Tel:|Celular:|Cel:|📞)\s*([0-9+\s\-()]{6,25})/i) ||
+            row.description.match(/(?:(?:280|549280|\+549280)\s*[\d\s\-]{6,12})/i)
+          )
+        : null;
+      const phone = row.contact_phone || (reporterPhoneMatch ? (reporterPhoneMatch[1] || reporterPhoneMatch[0]).trim() : '') || row.lost_report?.contact_phone || '';
+      const reporterNameMatch = typeof row.description === 'string'
+        ? row.description.match(/(?:Reportado por:|👤)\s*([^\n\r]+)/i)
+        : null;
+      const repName = row.reporter_name || (reporterNameMatch ? reporterNameMatch[1].trim() : '') || row.lost_report?.contact_name || 'Vecino solidario';
+
+      return {
+        ...row,
+        publication_type: 'sighting',
+        contact_phone: phone,
+        contact_name: repName,
+        last_seen_location: parseCoordinates(row.location),
+        pet: row.lost_report?.pet || {
+          name: 'Mascota Avistada',
+          species: 'dog',
+          photos: row.photo_url ? [row.photo_url] : [],
+        },
+      };
+    });
+
+    const all = [...lostItems, ...foundItems, ...sightingItems];
+    all.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    return all;
   } catch (err) {
-    console.error('Error en getAllLostReportsForAdmin:', err);
+    console.error('Error en getAllReportsForAdmin:', err);
     return [];
   }
 }
 
-// 14. Alternar estado de la publicación (ACTIVE <-> REUNITED) desde Super Admin
-export async function toggleReportStatusInDb(reportId: string, currentStatus: string): Promise<boolean> {
-  if (currentStatus !== 'REUNITED') {
-    return markReportAsReunitedInDb(reportId);
+// Retrocompatibilidad
+export async function getAllLostReportsForAdmin(): Promise<any[]> {
+  return getAllReportsForAdmin();
+}
+
+// 14. Alternar estado de la publicación desde Super Admin (Lost, Found o Sighting)
+export async function toggleReportStatusInDb(
+  reportId: string, 
+  currentStatus: string,
+  type: 'lost' | 'found' | 'sighting' = 'lost'
+): Promise<boolean> {
+  const isCurrentlyReunited = currentStatus === 'REUNITED' || currentStatus === 'VERIFIED';
+  const nextStatus = isCurrentlyReunited
+    ? (type === 'sighting' ? 'PENDING' : 'ACTIVE')
+    : (type === 'sighting' ? 'VERIFIED' : 'REUNITED');
+
+  try {
+    const res = await fetch('/api/reports/reunited', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reportId, type, status: nextStatus }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data.success) return true;
+    }
+  } catch (errApi) {
+    console.warn('Error al llamar a /api/reports/reunited:', errApi);
   }
+
+  // Fallback directo a Supabase Client
   const supabase = createBrowserClient();
+  const table = type === 'found' ? 'found_reports' : type === 'sighting' ? 'sightings' : 'lost_reports';
   try {
     const { error } = await supabase
-      .from('lost_reports')
-      .update({ status: 'ACTIVE', updated_at: new Date().toISOString() })
+      .from(table)
+      .update({ status: nextStatus, updated_at: new Date().toISOString() })
       .eq('id', reportId);
 
     if (error) {
-      console.error('Error al reactivar en Supabase:', error);
+      console.error(`Error al actualizar ${table} en Supabase:`, error);
       return false;
     }
     return true;
   } catch (err) {
-    console.error('Error en toggleReportStatusInDb:', err);
+    console.error('Error en toggleReportStatusInDb fallback:', err);
     return false;
   }
 }
 
-// 15. Eliminar reporte individual desde Super Admin
-export async function deleteSingleReportFromDb(reportId: string, petId?: string): Promise<boolean> {
+// 15. Eliminar reporte individual desde Super Admin (Lost, Found o Sighting)
+export async function deleteSingleReportFromDb(
+  reportId: string, 
+  petId?: string,
+  type: 'lost' | 'found' | 'sighting' = 'lost'
+): Promise<boolean> {
+  try {
+    const res = await fetch('/api/reports/delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reportId, petId, type }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data.success) return true;
+    }
+  } catch (errApi) {
+    console.warn('Aviso API /api/reports/delete no disponible, usando fallback:', errApi);
+  }
+
   const supabase = createBrowserClient();
   try {
-    // 1. Eliminar avistamientos vinculados
+    if (type === 'sighting') {
+      const { error } = await supabase.from('sightings').delete().eq('id', reportId);
+      return !error;
+    }
+    if (type === 'found') {
+      const { error: foundError } = await supabase.from('found_reports').delete().eq('id', reportId);
+      if (foundError) return false;
+      if (petId) await supabase.from('pets').delete().eq('id', petId);
+      return true;
+    }
+
+    // Default 'lost'
     await supabase.from('sightings').delete().eq('lost_report_id', reportId);
-    // 2. Eliminar de lost_reports
     const { error: repError } = await supabase.from('lost_reports').delete().eq('id', reportId);
     if (repError) {
       console.error('Error al eliminar lost_report:', repError);
       return false;
     }
-    // 3. Eliminar mascota si petId
     if (petId) {
       await supabase.from('pets').delete().eq('id', petId);
     }

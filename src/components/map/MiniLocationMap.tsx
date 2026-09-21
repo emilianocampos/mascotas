@@ -7,9 +7,16 @@ interface MiniLocationMapProps {
   longitude: number;
   title?: string;
   isHolding?: boolean;
+  type?: 'lost' | 'found' | 'sighting';
 }
 
-export default function MiniLocationMap({ latitude, longitude, title, isHolding = false }: MiniLocationMapProps) {
+export default function MiniLocationMap({ 
+  latitude, 
+  longitude, 
+  title, 
+  isHolding = false,
+  type = 'sighting'
+}: MiniLocationMapProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
 
@@ -42,15 +49,19 @@ export default function MiniLocationMap({ latitude, longitude, title, isHolding 
         maxZoom: 19,
       }).addTo(map);
 
-      // Marcador personalizado: Verde con 🏠 si está en tránsito, Amarillo con 🐾 si fue visto en la calle
-      const markerColor = isHolding ? '#10b981' : '#f59e0b';
-      const markerShadow = isHolding ? 'rgba(16,185,129,0.5)' : 'rgba(245,158,11,0.5)';
-      const markerEmoji = isHolding ? '🏠' : '🐾';
-      const circleFill = isHolding ? '#34d399' : '#fbbf24';
+      // Determinación de color, sombra y emoji según el tipo
+      const isLost = type === 'lost';
+      const isFound = type === 'found' || isHolding;
+
+      const markerColor = isLost ? '#ef4444' : isFound ? '#10b981' : '#f59e0b';
+      const markerShadow = isLost ? 'rgba(239,68,68,0.5)' : isFound ? 'rgba(16,185,129,0.5)' : 'rgba(245,158,11,0.5)';
+      const markerEmoji = isLost ? '🚨' : isFound ? '🏠' : '🐾';
+      const circleFill = isLost ? '#f87171' : isFound ? '#34d399' : '#fbbf24';
+      const circleRadius = isLost ? 140 : isFound ? 90 : 120;
 
       const customHtml = `
-        <div style="width: 34px; height: 42px; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: flex-start;">
-          <div style="width: 32px; height: 32px; border-radius: 12px; background-color: ${markerColor}; border: 2.5px solid #ffffff; box-shadow: 0 4px 12px ${markerShadow}; display: flex; align-items: center; justify-content: center; font-size: 16px; line-height: 28px; text-align: center;">
+        <div style="width: 36px; height: 44px; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: flex-start;">
+          <div style="width: 34px; height: 34px; border-radius: 12px; background-color: ${markerColor}; border: 2.5px solid #ffffff; box-shadow: 0 4px 12px ${markerShadow}; display: flex; align-items: center; justify-content: center; font-size: 16px; line-height: 30px; text-align: center;">
             ${markerEmoji}
           </div>
           <div style="width: 10px; height: 10px; background-color: ${markerColor}; border-right: 2.5px solid #ffffff; border-bottom: 2.5px solid #ffffff; transform: rotate(45deg); margin-top: -5px;"></div>
@@ -60,14 +71,19 @@ export default function MiniLocationMap({ latitude, longitude, title, isHolding 
       const icon = L.divIcon({
         html: customHtml,
         className: 'custom-sighting-map-marker',
-        iconSize: [34, 42],
-        iconAnchor: [17, 42],
-        popupAnchor: [0, -42],
+        iconSize: [36, 44],
+        iconAnchor: [18, 44],
+        popupAnchor: [0, -44],
       });
 
       const marker = L.marker([latitude, longitude], { icon }).addTo(map);
       if (title) {
-        marker.bindPopup(`<b>${title}</b><br/><span style="font-size: 11px;">${isHolding ? '🏠 En tránsito en domicilio' : '🐾 Visto en la vía pública'}</span>`);
+        const subtitle = isLost 
+          ? '🚨 Última ubicación de extravío' 
+          : isFound 
+          ? '🏠 Mascota en resguardo / tránsito' 
+          : '🐾 Visto en la vía pública';
+        marker.bindPopup(`<b>${title}</b><br/><span style="font-size: 11px;">${subtitle}</span>`);
       }
 
       // Círculo de área aproximada
@@ -75,7 +91,7 @@ export default function MiniLocationMap({ latitude, longitude, title, isHolding 
         color: markerColor,
         fillColor: circleFill,
         fillOpacity: 0.15,
-        radius: isHolding ? 80 : 120,
+        radius: circleRadius,
       }).addTo(map);
 
       mapInstanceRef.current = map;
@@ -90,7 +106,7 @@ export default function MiniLocationMap({ latitude, longitude, title, isHolding 
         mapInstanceRef.current = null;
       }
     };
-  }, [latitude, longitude, title, isHolding]);
+  }, [latitude, longitude, title, isHolding, type]);
 
   return <div ref={mapContainerRef} className="w-full h-full min-h-[250px] z-0" />;
 }

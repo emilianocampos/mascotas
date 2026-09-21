@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
+import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import QRCode from 'qrcode';
 import { 
@@ -17,7 +18,11 @@ import {
   ShieldAlert,
   ChevronLeft,
   Home,
-  FileText
+  FileText,
+  Phone,
+  Navigation,
+  ExternalLink,
+  Compass
 } from 'lucide-react';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { 
@@ -33,6 +38,18 @@ import {
 } from '@/lib/utils';
 import { incrementReportViews } from '@/services/reports.service';
 
+const MiniLeafletMap = dynamic(
+  () => import('@/components/map/MiniLocationMap'),
+  { 
+    ssr: false,
+    loading: () => (
+      <div className="h-64 w-full bg-zinc-100 dark:bg-zinc-800 rounded-2xl flex items-center justify-center text-zinc-400 text-xs animate-pulse">
+        Cargando mapa interactivo...
+      </div>
+    )
+  }
+);
+
 interface PetDetailInteractiveProps {
   report: any;
   sightings: any[];
@@ -46,6 +63,13 @@ export default function PetDetailInteractive({ report, sightings }: PetDetailInt
   const reportDate = isLost ? report.last_seen_date : report.found_date;
   const location = isLost ? report.last_seen_location : report.found_location;
   const photo = pet?.photos?.[0] || 'https://images.unsplash.com/photo-1552053831-71594a27632d';
+
+  const descriptionPhoneMatch = typeof report.description === 'string'
+    ? report.description.match(/(?:Contacto \/ WhatsApp:|WhatsApp:|Teléfono:|Tel:|Celular:|Cel:|📞)\s*([0-9+\s\-()]{6,25})/i)
+    : null;
+  const contactPhone = report.contact_phone || report.profile?.phone || (descriptionPhoneMatch ? descriptionPhoneMatch[1].trim() : '') || '';
+  const contactName = report.contact_name || report.profile?.full_name || (isLost ? 'Familia' : 'Vecino que la encontró');
+  const cleanPhone = contactPhone.replace(/[^0-9]/g, '');
 
   // Estados interactivos
   const [lightboxOpen, setLightboxOpen] = useState(false);
@@ -217,41 +241,81 @@ export default function PetDetailInteractive({ report, sightings }: PetDetailInt
 
             {/* Acciones de Contacto Inmediato */}
             {!isReunited && (
-              <div className="space-y-2.5">
+              <div className="space-y-3">
                 {isLost ? (
                   <>
                     <Link
                       href={`/publicar/avistamiento?reportId=${report.id}&petName=${encodeURIComponent(petName)}`}
-                      className="w-full py-4 rounded-2xl bg-amber-400 hover:bg-amber-500 text-zinc-950 font-black text-sm shadow-xl shadow-amber-400/30 flex items-center justify-center gap-2 transition-all transform active:scale-98 border-2 border-amber-500 text-center"
+                      className="w-full py-4 rounded-2xl bg-amber-400 hover:bg-amber-500 text-zinc-950 font-black text-sm shadow-xl shadow-amber-400/30 flex items-center justify-center gap-2 transition-all transform active:scale-98 border-2 border-amber-500 text-center cursor-pointer"
                     >
                       <Eye className="w-5 h-5 text-zinc-950" />
                       ¿VISTE A {petName.toUpperCase()}? REPORTAR AVISTAMIENTO 🟡
                     </Link>
 
-                    {report.profile?.phone && (
-                      <a
-                        href={`https://wa.me/${report.profile.phone.replace(/[^0-9]/g, '')}?text=Hola! Te escribo desde Mascotas Trelew por ${petName}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="w-full py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-sm shadow-lg shadow-emerald-600/25 flex items-center justify-center gap-2 transition-all active:scale-95"
-                      >
-                        <MessageCircle className="w-5 h-5" />
-                        Escribir por WhatsApp a la Familia ({report.profile.full_name || 'Dueño'})
-                      </a>
+                    {contactPhone && (
+                      <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-left space-y-2.5 shadow-xs">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5">
+                            <Phone className="w-4 h-4 text-emerald-600" />
+                            <span>Contacto: {contactName}</span>
+                          </span>
+                          <span className="text-xs font-black text-emerald-950 dark:text-emerald-200 font-mono">
+                            {contactPhone}
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <a
+                            href={`https://wa.me/${cleanPhone}?text=${encodeURIComponent(`Hola! Te escribo desde Mascotas Trelew por ${petName}`)}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-sm transition-all text-center cursor-pointer"
+                          >
+                            <MessageCircle className="w-3.5 h-3.5" />
+                            <span>WhatsApp</span>
+                          </a>
+                          <a
+                            href={`tel:${contactPhone.replace(/[^0-9+]/g, '')}`}
+                            className="py-2.5 px-3 rounded-xl bg-zinc-900 hover:bg-zinc-800 dark:bg-white dark:hover:bg-zinc-100 text-white dark:text-zinc-900 font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-sm transition-all text-center cursor-pointer"
+                          >
+                            <Phone className="w-3.5 h-3.5" />
+                            <span>Llamar</span>
+                          </a>
+                        </div>
+                      </div>
                     )}
                   </>
                 ) : (
                   <>
-                    {report.profile?.phone ? (
-                      <a
-                        href={`https://wa.me/${report.profile.phone.replace(/[^0-9]/g, '')}?text=Hola! Vi la publicación de la mascota encontrada en ${report.approximate_address}. Creo que es mía.`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="w-full py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-sm shadow-lg shadow-emerald-600/25 flex items-center justify-center gap-2 transition-all active:scale-95"
-                      >
-                        <MessageCircle className="w-5 h-5" />
-                        ¡Es mi mascota! Contactar por WhatsApp
-                      </a>
+                    {contactPhone ? (
+                      <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-left space-y-2.5 shadow-xs">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5">
+                            <Phone className="w-4 h-4 text-emerald-600" />
+                            <span>{contactName}</span>
+                          </span>
+                          <span className="text-xs font-black text-emerald-950 dark:text-emerald-200 font-mono">
+                            {contactPhone}
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <a
+                            href={`https://wa.me/${cleanPhone}?text=${encodeURIComponent(`Hola! Vi la publicación de la mascota encontrada en ${report.approximate_address}. Creo que es mía.`)}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-sm transition-all text-center cursor-pointer"
+                          >
+                            <MessageCircle className="w-3.5 h-3.5" />
+                            <span>¡Es mía! WhatsApp</span>
+                          </a>
+                          <a
+                            href={`tel:${contactPhone.replace(/[^0-9+]/g, '')}`}
+                            className="py-2.5 px-3 rounded-xl bg-zinc-900 hover:bg-zinc-800 dark:bg-white dark:hover:bg-zinc-100 text-white dark:text-zinc-900 font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-sm transition-all text-center cursor-pointer"
+                          >
+                            <Phone className="w-3.5 h-3.5" />
+                            <span>Llamar</span>
+                          </a>
+                        </div>
+                      </div>
                     ) : (
                       <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 text-xs text-emerald-900 dark:text-emerald-200">
                         <p className="font-bold mb-1">🐾 Información de Resguardo</p>
@@ -348,25 +412,57 @@ export default function PetDetailInteractive({ report, sightings }: PetDetailInt
               </p>
             </div>
 
-            {/* Ubicación */}
-            <div className="p-4 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 space-y-2">
-              <h4 className="text-xs font-black uppercase text-zinc-500 tracking-wider flex items-center gap-1.5">
-                <MapPin className="w-4 h-4 text-orange-500" />
-                {isLost ? 'Última Ubicación Conocida' : 'Lugar del Hallazgo'}
-              </h4>
-              <p className="text-sm font-extrabold text-zinc-900 dark:text-zinc-100">
-                {capitalizeWords(report.approximate_address)}
-              </p>
-              {(() => {
-                const parsed = parseGeoLocation(location);
-                if (!parsed || typeof parsed.latitude !== 'number' || typeof parsed.longitude !== 'number') return null;
-                return (
-                  <p className="text-xs text-zinc-500 font-mono">
-                    Coordenadas: {parsed.latitude.toFixed(4)}, {parsed.longitude.toFixed(4)}
-                  </p>
-                );
-              })()}
-            </div>
+            {/* Ubicación y Mini Mapa Interactivo */}
+            {(() => {
+              const parsedCoords = parseGeoLocation(location) || { latitude: -43.24895, longitude: -65.30505 };
+              const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${parsedCoords.latitude},${parsedCoords.longitude}`;
+
+              return (
+                <div className="p-5 rounded-3xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 space-y-3 shadow-xs">
+                  <div className="flex items-center justify-between gap-2">
+                    <h4 className="text-xs font-black uppercase text-zinc-900 dark:text-white tracking-wider flex items-center gap-1.5">
+                      <MapPin className="w-4 h-4 text-orange-500" />
+                      <span>{isLost ? 'Última Ubicación Conocida' : 'Lugar del Hallazgo'}</span>
+                    </h4>
+                    <a
+                      href={googleMapsUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-xs font-bold text-orange-600 dark:text-orange-400 hover:underline cursor-pointer"
+                    >
+                      <span>Google Maps</span>
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-100 dark:border-zinc-700/60">
+                    <p className="text-xs font-extrabold text-zinc-900 dark:text-zinc-100 flex items-center gap-1.5">
+                      <Navigation className="w-3.5 h-3.5 text-orange-500 shrink-0" />
+                      <span>{capitalizeWords(report.approximate_address || 'Trelew, Chubut')}</span>
+                    </p>
+                  </div>
+
+                  {/* Mapa Interactivo */}
+                  <div className="rounded-2xl overflow-hidden border border-zinc-200 dark:border-zinc-800 shadow-sm h-64 w-full">
+                    <MiniLeafletMap
+                      latitude={parsedCoords.latitude}
+                      longitude={parsedCoords.longitude}
+                      title={`${petName} — ${report.approximate_address || 'Trelew'}`}
+                      isHolding={report.is_holding}
+                      type={isLost ? 'lost' : 'found'}
+                    />
+                  </div>
+
+                  <Link
+                    href={`/mapa?id=${report.id}&lat=${parsedCoords.latitude}&lng=${parsedCoords.longitude}`}
+                    className="w-full py-2.5 px-3 rounded-xl bg-orange-50 hover:bg-orange-100 dark:bg-orange-950/40 dark:hover:bg-orange-900/50 text-orange-700 dark:text-orange-300 font-bold text-xs flex items-center justify-center gap-1.5 transition-colors border border-orange-200 dark:border-orange-800/60 cursor-pointer"
+                  >
+                    <Compass className="w-3.5 h-3.5 text-orange-500" />
+                    <span>Ver en el Mapa General de Trelew</span>
+                  </Link>
+                </div>
+              );
+            })()}
 
           </div>
 

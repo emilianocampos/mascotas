@@ -269,20 +269,43 @@ function SightingForm() {
             </label>
           </div>
 
-          {formData.is_holding && (
-            <div className="pt-3 border-t border-zinc-100 dark:border-zinc-800 space-y-1.5 animate-in fade-in duration-200">
-              <label className="block text-xs font-bold text-zinc-700 dark:text-zinc-300">
-                Tu teléfono o WhatsApp de contacto para coordinar la devolución
-              </label>
-              <input
-                type="tel"
-                placeholder="Ej: 2804123456 (para que el dueño te contacte)"
-                value={formData.contact_phone || ''}
-                onChange={(e) => setFormData({ ...formData, contact_phone: e.target.value })}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 text-zinc-900 dark:text-zinc-100"
-              />
+          <div className="pt-4 border-t border-zinc-100 dark:border-zinc-800 space-y-3">
+            <h3 className="text-xs font-black uppercase text-zinc-700 dark:text-zinc-300 tracking-wider">
+              Datos de Contacto {formData.is_holding ? '(Obligatorio para devolverlo)' : '(Para que te consulten)'}
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              <div>
+                <label className="block text-xs font-bold text-zinc-700 dark:text-zinc-300 mb-1">
+                  Tu nombre o apodo
+                </label>
+                <input
+                  type="text"
+                  placeholder="Ej: Marcos / Vecino"
+                  value={formData.reporter_name || ''}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, reporter_name: e.target.value }))}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 text-zinc-900 dark:text-zinc-100"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-zinc-700 dark:text-zinc-300 mb-1">
+                  Teléfono / WhatsApp de contacto {formData.is_holding && <span className="text-rose-500">*</span>}
+                </label>
+                <input
+                  type="tel"
+                  placeholder="Ej: 2804123456"
+                  value={formData.contact_phone || ''}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, contact_phone: e.target.value }))}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 text-zinc-900 dark:text-zinc-100"
+                />
+              </div>
             </div>
-          )}
+            <p className="text-[11px] text-zinc-500">
+              {formData.is_holding 
+                ? '🏠 Este teléfono se mostrará en la ficha para que el dueño se comunique directamente y coordine el reencuentro.' 
+                : '🐾 Permite que la familia de la mascota te mande un WhatsApp o te llame para pedirte más datos de hacia dónde se fue.'}
+            </p>
+          </div>
         </div>
 
         {/* 2. Selector de Mascota Perdida Vinculada */}

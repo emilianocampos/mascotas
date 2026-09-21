@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { 
   getAdminStats, 
   deleteAllReportsFromDb,
-  getAllLostReportsForAdmin,
+  getAllReportsForAdmin,
   toggleReportStatusInDb,
   deleteSingleReportFromDb
 } from '@/services/reports.service';
@@ -36,7 +36,8 @@ import {
   Check,
   RotateCcw,
   SlidersHorizontal,
-  Dog
+  Dog,
+  Home
 } from 'lucide-react';
 
 export default function AdminPage() {
@@ -51,6 +52,7 @@ export default function AdminPage() {
   const [reportsList, setReportsList] = useState<any[]>([]);
   const [isLoadingReports, setIsLoadingReports] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [typeFilter, setTypeFilter] = useState<'ALL' | 'lost' | 'found' | 'sighting'>('ALL');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'ACTIVE' | 'REUNITED'>('ALL');
   const [actionFeedback, setActionFeedback] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [togglingId, setTogglingId] = useState<string | null>(null);
@@ -65,7 +67,7 @@ export default function AdminPage() {
     try {
       const [statsData, reportsData] = await Promise.all([
         getAdminStats(),
-        getAllLostReportsForAdmin()
+        getAllReportsForAdmin()
       ]);
       setStats(statsData);
       setReportsList(reportsData);
@@ -112,28 +114,59 @@ export default function AdminPage() {
     setDeleteMessage(null);
   };
 
-  const handleToggleStatus = async (reportId: string, currentStatus: string, petName: string) => {
+  const handleToggleStatus = async (
+    reportId: string, 
+    currentStatus: string, 
+    petName: string,
+    type: 'lost' | 'found' | 'sighting' = 'lost'
+  ) => {
     setTogglingId(reportId);
     setActionFeedback(null);
     try {
-      const ok = await toggleReportStatusInDb(reportId, currentStatus);
+      const ok = await toggleReportStatusInDb(reportId, currentStatus, type);
       if (ok) {
-        const nextStatus = currentStatus === 'REUNITED' ? 'ACTIVE' : 'REUNITED';
+        const isCurrentlyReunited = currentStatus === 'REUNITED' || currentStatus === 'VERIFIED';
+        const nextStatus = isCurrentlyReunited 
+          ? (type === 'sighting' ? 'PENDING' : 'ACTIVE') 
+          : (type === 'sighting' ? 'VERIFIED' : 'REUNITED');
+
         setReportsList((prev) =>
           prev.map((r) => (r.id === reportId ? { ...r, status: nextStatus } : r))
         );
+
         if (stats) {
-          setStats({
-            ...stats,
-            total_reunited_pets: nextStatus === 'REUNITED' ? stats.total_reunited_pets + 1 : Math.max(0, stats.total_reunited_pets - 1),
-            active_lost_reports: nextStatus === 'ACTIVE' ? stats.active_lost_reports + 1 : Math.max(0, stats.active_lost_reports - 1),
-          });
+          if (type === 'lost') {
+            setStats({
+              ...stats,
+              total_reunited_pets: nextStatus === 'REUNITED' ? stats.total_reunited_pets + 1 : Math.max(0, stats.total_reunited_pets - 1),
+              active_lost_reports: nextStatus === 'ACTIVE' ? stats.active_lost_reports + 1 : Math.max(0, stats.active_lost_reports - 1),
+            });
+          } else if (type === 'found') {
+            setStats({
+              ...stats,
+              active_found_reports: nextStatus === 'ACTIVE' ? stats.active_found_reports + 1 : Math.max(0, stats.active_found_reports - 1),
+            });
+          }
         }
+
+        let feedbackMsg = '';
+        if (type === 'sighting') {
+          feedbackMsg = nextStatus === 'VERIFIED'
+            ? `¡Avistamiento de "${petName}" verificado y resuelto correctamente! ✓`
+            : `¡Avistamiento de "${petName}" marcado como pendiente! 🟡`;
+        } else if (type === 'found') {
+          feedbackMsg = nextStatus === 'REUNITED'
+            ? `¡"${petName}" marcada como DEVUELTA A SU FAMILIA! ❤️`
+            : `¡"${petName}" reactivada en resguardo/tránsito! 🏠`;
+        } else {
+          feedbackMsg = nextStatus === 'REUNITED'
+            ? `¡"${petName}" fue marcada como ENCONTRADA y reunida con su familia! ❤️`
+            : `¡"${petName}" fue reactivada en búsqueda activa! 🔴`;
+        }
+
         setActionFeedback({
           type: 'success',
-          text: nextStatus === 'REUNITED' 
-            ? `¡"${petName}" fue marcada como ENCONTRADA y reunida con su familia! ❤️` 
-            : `¡"${petName}" fue reactivada en búsqueda activa! 🔴`
+          text: feedbackMsg
         });
       } else {
         setActionFeedback({ type: 'error', text: 'No se pudo actualizar el estado de la publicación.' });
@@ -145,20 +178,28 @@ export default function AdminPage() {
     }
   };
 
-  const handleDeleteSingle = async (reportId: string, petId?: string, petName: string = 'la mascota') => {
+  const handleDeleteSingle = async (
+    reportId: string, 
+    petId?: string, 
+    petName: string = 'la mascota',
+    type: 'lost' | 'found' | 'sighting' = 'lost'
+  ) => {
     if (!confirm(`¿Estás seguro de que deseás eliminar permanentemente la publicación de ${petName}? Esta acción es irreversible.`)) {
       return;
     }
     setDeletingId(reportId);
     try {
-      const ok = await deleteSingleReportFromDb(reportId, petId);
+      const ok = await deleteSingleReportFromDb(reportId, petId, type);
       if (ok) {
         setReportsList((prev) => prev.filter((r) => r.id !== reportId));
         if (stats) {
-          setStats({
-            ...stats,
-            total_lost_reports: Math.max(0, stats.total_lost_reports - 1),
-          });
+          if (type === 'lost') {
+            setStats({ ...stats, total_lost_reports: Math.max(0, stats.total_lost_reports - 1) });
+          } else if (type === 'found') {
+            setStats({ ...stats, total_found_reports: Math.max(0, stats.total_found_reports - 1) });
+          } else if (type === 'sighting') {
+            setStats({ ...stats, total_sightings: Math.max(0, stats.total_sightings - 1) });
+          }
         }
         setActionFeedback({ type: 'success', text: `Publicación de "${petName}" eliminada correctamente.` });
       } else {
@@ -225,6 +266,7 @@ export default function AdminPage() {
               <div className="relative">
                 <User className="w-4 h-4 text-zinc-400 absolute left-3.5 top-1/2 transform -translate-y-1/2" />
                 <input
+                  id="admin-username"
                   type="text"
                   required
                   placeholder="Usuario Super Admin"
@@ -242,6 +284,7 @@ export default function AdminPage() {
               <div className="relative">
                 <Lock className="w-4 h-4 text-zinc-400 absolute left-3.5 top-1/2 transform -translate-y-1/2" />
                 <input
+                  id="admin-password"
                   type={showPassword ? 'text' : 'password'}
                   required
                   placeholder="••••••••"
@@ -260,6 +303,7 @@ export default function AdminPage() {
             </div>
 
             <button
+              id="admin-login-btn"
               type="submit"
               disabled={isLoadingLogin}
               className="w-full py-3.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-sm shadow-lg shadow-blue-600/25 transition-all active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer mt-2"
@@ -541,13 +585,60 @@ export default function AdminPage() {
           </button>
         </div>
 
-        {/* Barra de Búsqueda y Filtros */}
+        {/* Barra de Filtros por Tipo de Publicación */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
+          <button
+            onClick={() => setTypeFilter('ALL')}
+            className={`px-3.5 py-2 rounded-xl text-xs font-black transition-all cursor-pointer whitespace-nowrap ${
+              typeFilter === 'ALL'
+                ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 shadow-sm'
+                : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200'
+            }`}
+          >
+            Todas las Publicaciones ({reportsList.length})
+          </button>
+          <button
+            onClick={() => setTypeFilter('lost')}
+            className={`px-3.5 py-2 rounded-xl text-xs font-black transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
+              typeFilter === 'lost'
+                ? 'bg-rose-600 text-white shadow-sm'
+                : 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 hover:bg-rose-100'
+            }`}
+          >
+            <span>🚨</span>
+            Mascotas Perdidas ({reportsList.filter((r) => r.publication_type === 'lost').length})
+          </button>
+          <button
+            onClick={() => setTypeFilter('found')}
+            className={`px-3.5 py-2 rounded-xl text-xs font-black transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
+              typeFilter === 'found'
+                ? 'bg-emerald-600 text-white shadow-sm'
+                : 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100'
+            }`}
+          >
+            <span>🏠</span>
+            Encontradas en Tránsito ({reportsList.filter((r) => r.publication_type === 'found').length})
+          </button>
+          <button
+            onClick={() => setTypeFilter('sighting')}
+            className={`px-3.5 py-2 rounded-xl text-xs font-black transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
+              typeFilter === 'sighting'
+                ? 'bg-amber-500 text-zinc-950 shadow-sm font-extrabold'
+                : 'bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 hover:bg-amber-100'
+            }`}
+          >
+            <span>🟡</span>
+            Avistamientos en Calle ({reportsList.filter((r) => r.publication_type === 'sighting').length})
+          </button>
+        </div>
+
+        {/* Barra de Búsqueda y Filtros por Estado */}
         <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
           <div className="relative flex-1 max-w-md">
             <Search className="w-4 h-4 text-zinc-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
             <input
               type="text"
-              placeholder="Buscar por nombre de mascota, calle, contacto..."
+              placeholder="Buscar por nombre, calle, contacto o detalle..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-xs text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -571,7 +662,7 @@ export default function AdminPage() {
                   : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200'
               }`}
             >
-              Todas ({reportsList.length})
+              Todos los estados
             </button>
             <button
               onClick={() => setStatusFilter('ACTIVE')}
@@ -582,7 +673,7 @@ export default function AdminPage() {
               }`}
             >
               <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>
-              Perdidas Activas ({reportsList.filter((r) => r.status === 'ACTIVE').length})
+              Búsqueda Activa / Pendiente
             </button>
             <button
               onClick={() => setStatusFilter('REUNITED')}
@@ -593,7 +684,7 @@ export default function AdminPage() {
               }`}
             >
               <span>❤️</span>
-              Encontradas / Reunidas ({reportsList.filter((r) => r.status === 'REUNITED').length})
+              Encontradas / Reunidas / Verificadas
             </button>
           </div>
         </div>
@@ -607,8 +698,13 @@ export default function AdminPage() {
         ) : (
           (() => {
             const filteredReports = reportsList.filter((item) => {
-              if (statusFilter === 'ACTIVE' && item.status !== 'ACTIVE') return false;
-              if (statusFilter === 'REUNITED' && item.status !== 'REUNITED') return false;
+              // Filtro por tipo
+              if (typeFilter !== 'ALL' && item.publication_type !== typeFilter) return false;
+
+              // Filtro por estado
+              if (statusFilter === 'ACTIVE' && item.status !== 'ACTIVE' && item.status !== 'PENDING') return false;
+              if (statusFilter === 'REUNITED' && item.status !== 'REUNITED' && item.status !== 'VERIFIED') return false;
+
               if (searchQuery.trim()) {
                 const q = searchQuery.toLowerCase().trim();
                 const petName = (item.pet?.name || '').toLowerCase();
@@ -616,12 +712,14 @@ export default function AdminPage() {
                 const contactName = (item.contact_name || item.profile?.full_name || '').toLowerCase();
                 const contactPhone = (item.contact_phone || item.profile?.phone || '').toLowerCase();
                 const breed = (item.pet?.breed || '').toLowerCase();
+                const desc = (item.description || '').toLowerCase();
                 return (
                   petName.includes(q) ||
                   address.includes(q) ||
                   contactName.includes(q) ||
                   contactPhone.includes(q) ||
-                  breed.includes(q)
+                  breed.includes(q) ||
+                  desc.includes(q)
                 );
               }
               return true;
@@ -635,7 +733,7 @@ export default function AdminPage() {
                     No se encontraron publicaciones con ese criterio
                   </h4>
                   <p className="text-xs text-zinc-500">
-                    {searchQuery ? 'Probá borrando el filtro de búsqueda.' : 'No hay publicaciones registradas aún.'}
+                    {searchQuery ? 'Probá borrando el filtro de búsqueda.' : 'No hay publicaciones registradas en esta categoría.'}
                   </p>
                 </div>
               );
@@ -644,14 +742,28 @@ export default function AdminPage() {
             return (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {filteredReports.map((rep) => {
+                  const pubType = rep.publication_type || 'lost';
+                  const isLost = pubType === 'lost';
+                  const isFound = pubType === 'found';
+                  const isSighting = pubType === 'sighting';
+
                   const pet = rep.pet;
-                  const petName = pet?.name || 'Mascota sin nombre';
-                  const isReunited = rep.status === 'REUNITED';
-                  const photo = pet?.photos?.[0] || 'https://images.unsplash.com/photo-1543466835-00a7907e9de1';
-                  const phone = rep.contact_phone || rep.profile?.phone || '';
-                  const cleanPhone = phone.replace(/\D/g, '');
-                  const lat = rep.last_seen_location?.latitude || -43.24895;
-                  const lng = rep.last_seen_location?.longitude || -65.30505;
+                  const petName = pet?.name || (isLost ? 'Mascota perdida' : isFound ? 'Mascota encontrada' : 'Mascota avistada');
+                  const isReunited = rep.status === 'REUNITED' || rep.status === 'VERIFIED';
+                  const photo = pet?.photos?.[0] || rep.photo_url || (isLost ? 'https://images.unsplash.com/photo-1543466835-00a7907e9de1' : 'https://images.unsplash.com/photo-1548199973-03cce0bbc87b');
+                  
+                  // Teléfono para cualquier tipo
+                  const phoneRegexMatch = typeof rep.description === 'string'
+                    ? rep.description.match(/(?:Contacto \/ WhatsApp:|WhatsApp:|Teléfono:|📞)\s*([0-9+\s\-()]{6,25})/i)
+                    : null;
+                  const phone = rep.contact_phone || rep.profile?.phone || (phoneRegexMatch ? phoneRegexMatch[1].trim() : '') || '';
+                  const cleanPhone = phone.replace(/[^0-9]/g, '');
+
+                  const coords = rep.last_seen_location || rep.found_location || rep.location || { latitude: -43.24895, longitude: -65.30505 };
+                  const lat = coords.latitude || -43.24895;
+                  const lng = coords.longitude || -65.30505;
+
+                  const publicUrl = isSighting ? `/mascota-avistada/${rep.id}` : `/mascotas-perdidas/${rep.id}`;
 
                   return (
                     <div
@@ -667,31 +779,49 @@ export default function AdminPage() {
                         <div className="relative w-20 h-20 rounded-2xl overflow-hidden shrink-0 border border-zinc-200 dark:border-zinc-800 bg-zinc-100 dark:bg-zinc-800">
                           <img src={photo} alt={petName} className="w-full h-full object-cover" />
                           <span className="absolute bottom-1 right-1 text-sm bg-black/50 backdrop-blur-xs rounded-md px-1">
-                            {getSpeciesEmoji(pet?.species)}
+                            {isSighting ? '🟡' : isFound ? '🏠' : getSpeciesEmoji(pet?.species)}
                           </span>
                         </div>
 
                         {/* Datos Básicos */}
-                        <div className="space-y-1 flex-1 min-w-0">
-                          <div className="flex flex-wrap items-center gap-2">
-                            {isReunited ? (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 text-[11px] font-black uppercase">
-                                <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                                Encontrada / Reunida ❤️
+                        <div className="space-y-1.5 flex-1 min-w-0">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            {/* Badge de Tipo */}
+                            {isLost && (
+                              <span className="px-2 py-0.5 rounded-md bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 text-[10px] font-black uppercase">
+                                🚨 Perdida
                               </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 text-[11px] font-black uppercase">
-                                <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse"></span>
-                                Búsqueda Activa
+                            )}
+                            {isFound && (
+                              <span className="px-2 py-0.5 rounded-md bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 text-[10px] font-black uppercase">
+                                🏠 En Tránsito
+                              </span>
+                            )}
+                            {isSighting && (
+                              <span className="px-2 py-0.5 rounded-md bg-amber-100 dark:bg-amber-950/60 text-amber-900 dark:text-amber-300 text-[10px] font-black uppercase">
+                                🟡 Avistamiento
                               </span>
                             )}
 
-                            <span className="text-[11px] text-zinc-400">
+                            {/* Badge de Estado */}
+                            {isReunited ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 text-[10px] font-black uppercase">
+                                <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                {isSighting ? 'Verificado ✓' : 'Encontrada / Reunida ❤️'}
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 text-[10px] font-black uppercase">
+                                <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse"></span>
+                                {isSighting ? 'Pendiente' : 'Búsqueda Activa'}
+                              </span>
+                            )}
+
+                            <span className="text-[10px] text-zinc-400">
                               {formatTimeAgo(rep.created_at)}
                             </span>
                           </div>
 
-                          <h3 className="font-black text-lg text-zinc-900 dark:text-white truncate">
+                          <h3 className="font-black text-base sm:text-lg text-zinc-900 dark:text-white truncate">
                             {petName}
                           </h3>
 
@@ -701,10 +831,22 @@ export default function AdminPage() {
                           </p>
 
                           {phone && (
-                            <p className="text-xs text-zinc-600 dark:text-zinc-400 flex items-center gap-1">
-                              <Phone className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                              <span>{rep.contact_name ? `${rep.contact_name}: ` : ''}{phone}</span>
-                            </p>
+                            <div className="flex items-center gap-2 pt-0.5">
+                              <p className="text-xs text-zinc-700 dark:text-zinc-300 flex items-center gap-1 font-mono font-bold">
+                                <Phone className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                                <span>{phone}</span>
+                              </p>
+                              {cleanPhone && (
+                                <a
+                                  href={`https://wa.me/${cleanPhone}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="px-2 py-0.5 rounded-md bg-emerald-100 hover:bg-emerald-200 text-emerald-800 text-[10px] font-extrabold transition-colors cursor-pointer"
+                                >
+                                  WhatsApp
+                                </a>
+                              )}
+                            </div>
                           )}
                         </div>
                       </div>
@@ -712,17 +854,27 @@ export default function AdminPage() {
                       {/* Botones de Acción para Super Admin */}
                       <div className="pt-2 border-t border-zinc-100 dark:border-zinc-800 flex flex-wrap items-center justify-between gap-2">
                         <div className="flex flex-wrap items-center gap-2">
-                          {/* 1. Botón: Marcar como Encontrada (Permanente) */}
+                          {/* Botón: Marcar como Encontrada / Reunida o Verificado */}
                           {isReunited ? (
-                            <span className="px-3.5 py-2 rounded-xl text-xs font-black bg-emerald-100 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 flex items-center gap-1.5 shadow-xs select-none">
-                              <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                              <span>¡Mascota Encontrada! ❤️</span>
-                            </span>
+                            <div className="inline-flex items-center gap-2">
+                              <span className="px-3 py-1.5 rounded-xl text-xs font-black bg-emerald-100 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 flex items-center gap-1 shadow-xs select-none">
+                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                                <span>{isSighting ? '¡Verificado! ✓' : '¡Mascota Encontrada! ❤️'}</span>
+                              </span>
+                              <button
+                                type="button"
+                                disabled={togglingId === rep.id}
+                                onClick={() => handleToggleStatus(rep.id, rep.status, petName, pubType)}
+                                className="text-[10px] font-bold text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 underline cursor-pointer"
+                              >
+                                {isSighting ? 'Desmarcar' : 'Reactivar'}
+                              </button>
+                            </div>
                           ) : (
                             <button
                               type="button"
                               disabled={togglingId === rep.id}
-                              onClick={() => handleToggleStatus(rep.id, rep.status, petName)}
+                              onClick={() => handleToggleStatus(rep.id, rep.status, petName, pubType)}
                               className="px-3.5 py-2 rounded-xl text-xs font-extrabold flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer shadow-xs bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/20"
                             >
                               {togglingId === rep.id ? (
@@ -730,29 +882,27 @@ export default function AdminPage() {
                               ) : (
                                 <CheckCircle2 className="w-3.5 h-3.5" />
                               )}
-                              <span>¡Marcar como Encontrada! ❤️</span>
+                              <span>{isSighting ? '✓ Marcar como Verificado' : '¡Marcar como Encontrada! ❤️'}</span>
                             </button>
                           )}
 
-                          {/* 2. Botón: Ubicar en el Mapa (solo si está activa) */}
-                          {!isReunited && (
-                            <Link
-                              href={`/mapa?id=${rep.id}&lat=${lat}&lng=${lng}`}
-                              target="_blank"
-                              className="px-3 py-2 rounded-xl bg-orange-50 hover:bg-orange-100 dark:bg-orange-950/40 dark:hover:bg-orange-900/50 text-orange-700 dark:text-orange-300 font-bold text-xs flex items-center gap-1.5 transition-colors border border-orange-200 dark:border-orange-800/60"
-                            >
-                              <Compass className="w-3.5 h-3.5 text-orange-500" />
-                              <span>Ver en Mapa</span>
-                            </Link>
-                          )}
+                          {/* Botón: Ubicar en el Mapa */}
+                          <Link
+                            href={`/mapa?id=${rep.id}&lat=${lat}&lng=${lng}`}
+                            target="_blank"
+                            className="px-3 py-2 rounded-xl bg-orange-50 hover:bg-orange-100 dark:bg-orange-950/40 dark:hover:bg-orange-900/50 text-orange-700 dark:text-orange-300 font-bold text-xs flex items-center gap-1.5 transition-colors border border-orange-200 dark:border-orange-800/60 cursor-pointer"
+                          >
+                            <Compass className="w-3.5 h-3.5 text-orange-500" />
+                            <span>Ver en Mapa</span>
+                          </Link>
                         </div>
 
                         <div className="flex items-center gap-1.5">
                           {/* Ficha pública */}
                           <Link
-                            href={`/mascotas-perdidas/${rep.id}`}
+                            href={publicUrl}
                             target="_blank"
-                            className="p-2 rounded-xl bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-300 transition-colors"
+                            className="p-2 rounded-xl bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-300 transition-colors cursor-pointer"
                             title="Ver Ficha Pública"
                           >
                             <ExternalLink className="w-4 h-4" />
@@ -762,7 +912,7 @@ export default function AdminPage() {
                           <button
                             type="button"
                             disabled={deletingId === rep.id}
-                            onClick={() => handleDeleteSingle(rep.id, rep.pet_id, petName)}
+                            onClick={() => handleDeleteSingle(rep.id, rep.pet_id, petName, pubType)}
                             className="p-2 rounded-xl text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 transition-colors cursor-pointer"
                             title="Eliminar publicación"
                           >

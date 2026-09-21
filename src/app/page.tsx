@@ -16,7 +16,6 @@ import { getNearbyLostReports, getNearbyFoundReports, getAdminStats } from '@/se
 import { PetReportCard } from '@/components/cards/PetReportCard';
 
 export const dynamic = 'force-dynamic';
-export const revalidate = 0;
 
 export default async function HomePage() {
   const [lostReports, foundReports, stats] = await Promise.all([
@@ -128,7 +127,7 @@ export default async function HomePage() {
                 {stats.total_sightings}
               </div>
               <div className="text-[11px] sm:text-xs font-semibold text-zinc-600 dark:text-zinc-400">
-                Avistamientos
+                Avistadas / Encontradas
               </div>
             </div>
           </div>

@@ -71,6 +71,8 @@ export interface LostReport {
   last_seen_location: GeoPoint;
   approximate_address: string;
   description: string;
+  contact_phone?: string | null;
+  contact_name?: string | null;
   contact_phone_public: boolean;
   views_count: number;
   created_at: string;
@@ -93,6 +95,8 @@ export interface FoundReport {
   approximate_address: string;
   is_holding: boolean;
   description: string;
+  contact_phone?: string | null;
+  contact_name?: string | null;
   created_at: string;
   updated_at: string;
   // Campos expandidos opcionales

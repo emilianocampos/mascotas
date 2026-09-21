@@ -51,7 +51,7 @@ export function PetReportCard({ report, type }: PetReportCardProps) {
 
   return (
     <div className="group bg-white dark:bg-zinc-900 rounded-2xl overflow-hidden border border-zinc-200 dark:border-zinc-800 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col justify-between">
-      <Link href={`/mascotas-perdidas/${report.id}`} className="block">
+      <Link href={`/mascotas-perdidas/${report.id}`} prefetch={false} className="block">
         {/* Thumbnail Container */}
         <div className="relative aspect-16/11 w-full overflow-hidden bg-zinc-100 dark:bg-zinc-800">
           <img
@@ -137,6 +137,7 @@ export function PetReportCard({ report, type }: PetReportCardProps) {
         <div className="p-3 pt-0">
           <Link
             href={`/publicar/avistamiento?reportId=${report.id}&petName=${encodeURIComponent(petName)}`}
+            prefetch={false}
             className="w-full py-2.5 px-3 rounded-xl bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 dark:hover:bg-amber-900/50 text-amber-900 dark:text-amber-200 border border-amber-200 dark:border-amber-800 font-extrabold text-xs flex items-center justify-center gap-1.5 transition-all transform active:scale-98 text-center"
           >
             <span className="w-2 h-2 rounded-full bg-amber-500"></span>

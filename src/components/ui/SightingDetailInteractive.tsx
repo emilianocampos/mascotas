@@ -17,7 +17,8 @@ import {
   CheckCircle2,
   ExternalLink,
   Compass,
-  UserCheck
+  UserCheck,
+  Phone
 } from 'lucide-react';
 import { 
   formatTimeAgo, 
@@ -59,8 +60,25 @@ export default function SightingDetailInteractive({ sighting }: SightingDetailPr
   const formattedDate = formatDate(sighting.sighting_date);
   const timeAgo = formatTimeAgo(sighting.sighting_date);
 
-  const cleanOwnerPhone = ownerProfile?.phone ? ownerProfile.phone.replace(/[^0-9]/g, '') : '';
+  const ownerPhone = lostReport?.contact_phone || ownerProfile?.phone || '';
+  const cleanOwnerPhone = ownerPhone.replace(/[^0-9]/g, '');
+  const ownerName = lostReport?.contact_name || ownerProfile?.full_name || 'Familia';
   const petName = capitalizeWords(linkedPet?.name || 'la mascota');
+
+  // Extraer teléfono y contacto de quien reportó el avistamiento / tránsito
+  const reporterPhoneMatch = typeof sighting.description === 'string' 
+    ? (
+        sighting.description.match(/(?:Contacto \/ WhatsApp:|WhatsApp:|Teléfono:|Tel:|Celular:|Cel:|📞)\s*([0-9+\s\-()]{6,25})/i) ||
+        sighting.description.match(/(?:(?:280|549280|\+549280)\s*[\d\s\-]{6,12})/i)
+      )
+    : null;
+  const rawReporterPhone = sighting.contact_phone || (reporterPhoneMatch ? (reporterPhoneMatch[1] || reporterPhoneMatch[0]).trim() : '') || sighting.profile?.phone || '';
+  const cleanReporterPhone = rawReporterPhone.replace(/[^0-9]/g, '');
+
+  const reporterNameMatch = typeof sighting.description === 'string'
+    ? sighting.description.match(/(?:Reportado por:|👤)\s*([^\n\r]+)/i)
+    : null;
+  const reporterName = sighting.reporter_name || (reporterNameMatch ? reporterNameMatch[1].trim() : '') || 'Vecino solidario';
 
   const whatsappMessage = `¡Hola! Vi el reporte de avistamiento de *${petName}* en Trelew:\n📍 *Ubicación:* ${capitalizeWords(sighting.approximate_address)}\n🕒 *Fecha/Hora:* ${formattedDate} (${timeAgo})\n📝 *Detalle:* ${capitalizeFirst(sighting.description)}\n\nPodés ver la ficha aquí: ${typeof window !== 'undefined' ? window.location.href : ''}`;
 
@@ -205,18 +223,70 @@ export default function SightingDetailInteractive({ sighting }: SightingDetailPr
               </div>
             </div>
 
-            {/* Botón de WhatsApp al dueño */}
+            {/* Contacto directo con el dueño */}
             {cleanOwnerPhone && (
+              <div className="space-y-2 pt-1">
+                <div className="flex items-center justify-between text-xs font-bold text-emerald-950 dark:text-emerald-200 bg-emerald-100/80 dark:bg-emerald-950/60 p-3 rounded-xl border border-emerald-300 dark:border-emerald-800">
+                  <span className="flex items-center gap-1.5">
+                    <Phone className="w-4 h-4 text-emerald-600" />
+                    <span>Teléfono del dueño ({ownerName}):</span>
+                  </span>
+                  <span className="font-mono font-black text-sm">{ownerPhone}</span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <a 
+                    href={`https://wa.me/${cleanOwnerPhone}?text=${encodeURIComponent(whatsappMessage)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs flex items-center justify-center gap-2 shadow-md shadow-emerald-600/20 transition-all active:scale-95 text-center cursor-pointer"
+                  >
+                    <MessageCircle className="w-4 h-4" />
+                    <span>Avisar al Dueño por WhatsApp</span>
+                  </a>
+                  <a 
+                    href={`tel:${cleanOwnerPhone}`}
+                    className="py-3 px-4 rounded-xl bg-zinc-900 hover:bg-zinc-800 dark:bg-white dark:hover:bg-zinc-100 text-white dark:text-zinc-900 font-black text-xs flex items-center justify-center gap-2 shadow-md transition-all active:scale-95 text-center cursor-pointer"
+                  >
+                    <Phone className="w-4 h-4" />
+                    <span>Llamar al Dueño</span>
+                  </a>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Contacto Directo con quien lo Vio / Tiene en Tránsito */}
+        {rawReporterPhone && (
+          <div className="p-4 sm:p-5 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-left space-y-3 shadow-xs">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+              <div className="flex items-center gap-2 text-xs font-bold text-amber-900 dark:text-amber-300">
+                <Phone className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                <span>Contacto de quien {isHolding ? 'lo tiene en tránsito' : 'lo vio'}: <strong>{reporterName}</strong></span>
+              </div>
+              <span className="text-sm font-black text-amber-950 dark:text-amber-200 font-mono">
+                {rawReporterPhone}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
               <a 
-                href={`https://wa.me/${cleanOwnerPhone}?text=${encodeURIComponent(whatsappMessage)}`}
+                href={`https://wa.me/${cleanReporterPhone}?text=${encodeURIComponent(`Hola ${reporterName}! Te escribo por el reporte en Mascotas Trelew de ${sighting.approximate_address}.`)}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-full py-3.5 px-4 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/30 transition-all active:scale-95 text-center cursor-pointer"
+                className="py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs flex items-center justify-center gap-2 shadow-sm transition-all text-center cursor-pointer active:scale-95"
               >
                 <MessageCircle className="w-4 h-4" />
-                <span>AVISAR AL DUEÑO POR WHATSAPP</span>
+                <span>Escribir por WhatsApp</span>
               </a>
-            )}
+              <a 
+                href={`tel:${rawReporterPhone.replace(/[^0-9+]/g, '')}`}
+                className="py-3 px-4 rounded-xl bg-zinc-900 hover:bg-zinc-800 dark:bg-white dark:hover:bg-zinc-100 text-white dark:text-zinc-900 font-extrabold text-xs flex items-center justify-center gap-2 shadow-sm transition-all text-center cursor-pointer active:scale-95"
+              >
+                <Phone className="w-4 h-4" />
+                <span>Llamar por teléfono</span>
+              </a>
+            </div>
           </div>
         )}
 
@@ -272,11 +342,18 @@ export default function SightingDetailInteractive({ sighting }: SightingDetailPr
               href={googleMapsUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className={`inline-flex items-center gap-1 text-xs font-extrabold ${isHolding ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'} hover:underline`}
+              className={`inline-flex items-center gap-1 text-xs font-extrabold ${isHolding ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'} hover:underline cursor-pointer`}
             >
               <span>Abrir en Google Maps</span>
               <ExternalLink className="w-3 h-3" />
             </a>
+          </div>
+
+          <div className="p-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-100 dark:border-zinc-700/60">
+            <p className="text-xs font-bold text-zinc-800 dark:text-zinc-200 flex items-center gap-1.5">
+              <MapPin className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+              <span>{capitalizeWords(sighting.approximate_address || 'Trelew, Chubut')}</span>
+            </p>
           </div>
 
           <div className="rounded-2xl overflow-hidden border border-zinc-200 dark:border-zinc-800 shadow-sm h-64 w-full">
@@ -285,6 +362,7 @@ export default function SightingDetailInteractive({ sighting }: SightingDetailPr
               longitude={loc.longitude} 
               title={sighting.approximate_address} 
               isHolding={isHolding}
+              type={isHolding ? 'found' : 'sighting'}
             />
           </div>
         </div>
