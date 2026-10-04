@@ -20,7 +20,7 @@ export default function PhotoUploader({
 }: PhotoUploaderProps) {
   const [isUploading, setIsUploading] = useState(false);
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
@@ -32,15 +32,44 @@ export default function PhotoUploader({
 
     setIsUploading(true);
 
-    // Lectura local como DataURL (o subida a Supabase Storage)
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setIsUploading(false);
-      if (typeof reader.result === 'string') {
-        onChange([...photos, reader.result]);
+    try {
+      // 1. Comprimir en cliente (Canvas)
+      const { compressImage } = await import('@/lib/image-compressor');
+      const { file: compressedFile, dataUrl } = await compressImage(file, 1200, 1200, 0.82);
+
+      // 2. Subir directamente al endpoint seguro /api/upload
+      const formData = new FormData();
+      formData.append('file', compressedFile);
+
+      const res = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (res.ok) {
+        const json = await res.json();
+        if (json.url) {
+          onChange([...photos, json.url]);
+          setIsUploading(false);
+          return;
+        }
       }
-    };
-    reader.readAsDataURL(file);
+
+      // Fallback ligero comprimido (siempre <100KB)
+      onChange([...photos, dataUrl]);
+    } catch (err) {
+      console.error('Error al procesar foto:', err);
+      // Fallback básico
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        if (typeof reader.result === 'string') {
+          onChange([...photos, reader.result]);
+        }
+      };
+      reader.readAsDataURL(file);
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   const removePhoto = (index: number) => {

@@ -79,6 +79,22 @@ export function parseCoordinates(loc: any): { latitude: number; longitude: numbe
 
 // 1. Subir imagen a Supabase Storage (Bucket: pet-photos)
 export async function uploadPetPhoto(file: File): Promise<string> {
+  // Intentar primero a través de la API Route segura
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+    const res = await fetch('/api/upload', {
+      method: 'POST',
+      body: formData,
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data.url) return data.url;
+    }
+  } catch {
+    // Si fetch falla en SSR o entorno sin /api/upload, intentar cliente directo
+  }
+
   const supabase = createBrowserClient();
   const bucketName = 'pet-photos';
 
@@ -88,7 +104,7 @@ export async function uploadPetPhoto(file: File): Promise<string> {
   const filePath = `reports/${fileName}`;
 
   // Intentar subir directamente a Supabase Storage
-  const { data, error } = await supabase.storage
+  const { error } = await supabase.storage
     .from(bucketName)
     .upload(filePath, file, {
       cacheControl: '3600',
@@ -97,7 +113,7 @@ export async function uploadPetPhoto(file: File): Promise<string> {
 
   if (error) {
     console.warn(`Aviso en Storage Supabase: ${error.message}.`);
-    // Fallback: Si el bucket aún no fue creado en el dashboard de Supabase, generar Data URL
+    // Fallback: Generar Data URL
     return new Promise((resolve) => {
       const reader = new FileReader();
       reader.onloadend = () => resolve(reader.result as string);

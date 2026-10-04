@@ -16,6 +16,7 @@ import { getNearbyLostReports, getNearbyFoundReports, getAdminStats } from '@/se
 import { PetReportCard } from '@/components/cards/PetReportCard';
 
 export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 export default async function HomePage() {
   const [lostReports, foundReports, stats] = await Promise.all([
