@@ -33,6 +33,8 @@ interface Props {
   params: Promise<{ id: string }>;
 }
 
+export const revalidate = 60;
+
 // Generación de Metadatos Dinámicos Open Graph para WhatsApp y Facebook
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;

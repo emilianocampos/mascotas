@@ -40,9 +40,9 @@ body {
   scrollbar-width: none;
 }
 
-/* Reglas de impresión limpias para afiches y carteles */
+/* Reglas de impresión limpias para afiches y carteles (1 sola hoja A4) */
 @media print {
-  header, footer, nav, button, .print\:hidden {
+  header, footer, nav, button, aside, .print\:hidden, [role="dialog"], #driver-popover-item {
     display: none !important;
   }
   body {
@@ -57,7 +57,7 @@ body {
   }
   @page {
     size: A4 portrait;
-    margin: 1cm;
+    margin: 0.8cm;
   }
 }
 

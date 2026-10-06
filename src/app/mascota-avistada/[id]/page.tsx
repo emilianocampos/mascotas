@@ -8,6 +8,8 @@ interface Props {
   params: Promise<{ id: string }>;
 }
 
+export const revalidate = 60;
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
   const sighting = await getSightingById(id);

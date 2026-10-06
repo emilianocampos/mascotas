@@ -184,19 +184,40 @@ export function getGenderLabel(gender: PetGender): string {
 export function getStatusBadge(status: ReportStatus): { label: string; colorClass: string } {
   switch (status) {
     case 'ACTIVE':
-      return { label: 'BÚSQUEDA ACTIVA', colorClass: 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20' };
+      return { 
+        label: 'BÚSQUEDA ACTIVA', 
+        colorClass: 'bg-rose-600/85 backdrop-blur-md text-white border border-rose-400/50 font-black shadow-md' 
+      };
     case 'REUNITED':
-      return { label: '¡REUNIDO EN CASA! ❤️', colorClass: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20 font-bold' };
+      return { 
+        label: '¡REUNIDO EN CASA! ❤️', 
+        colorClass: 'bg-emerald-600/90 backdrop-blur-md text-white border border-emerald-400/50 font-black shadow-md' 
+      };
     case 'FOUND':
-      return { label: 'ENCONTRADO / EN TRÁNSITO', colorClass: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20' };
+      return { 
+        label: 'EN TRÁNSITO 🏠', 
+        colorClass: 'bg-emerald-600/90 backdrop-blur-md text-white border border-emerald-400/50 font-black shadow-md' 
+      };
     case 'UNDER_REVIEW':
-      return { label: 'EN REVISIÓN', colorClass: 'bg-slate-500/10 text-slate-700 dark:text-slate-400 border-slate-500/20' };
+      return { 
+        label: 'EN REVISIÓN', 
+        colorClass: 'bg-slate-600/90 backdrop-blur-md text-white border border-slate-400/50 font-bold shadow-md' 
+      };
     case 'CLOSED':
-      return { label: 'CERRADO', colorClass: 'bg-zinc-500/10 text-zinc-700 dark:text-zinc-400 border-zinc-500/20' };
+      return { 
+        label: 'CERRADO', 
+        colorClass: 'bg-zinc-600/90 backdrop-blur-md text-white border border-zinc-400/50 font-bold shadow-md' 
+      };
     case 'REMOVED':
-      return { label: 'ELIMINADO', colorClass: 'bg-rose-500/10 text-rose-700 dark:text-rose-400 border-rose-500/20' };
+      return { 
+        label: 'ELIMINADO', 
+        colorClass: 'bg-zinc-600/90 backdrop-blur-md text-white border border-zinc-400/50 font-bold shadow-md' 
+      };
     default:
-      return { label: status, colorClass: 'bg-slate-500/10 text-slate-700 border-slate-500/20' };
+      return { 
+        label: status, 
+        colorClass: 'bg-slate-600/90 backdrop-blur-md text-white border border-slate-400/50 font-bold shadow-md' 
+      };
   }
 }
 

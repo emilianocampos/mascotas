@@ -33,11 +33,11 @@ export default function PhotoUploader({
     setIsUploading(true);
 
     try {
-      // 1. Comprimir en cliente (Canvas)
+      // 1. Comprimir en cliente (Canvas) a máx 1000px y calidad 0.75 (~50-80KB)
       const { compressImage } = await import('@/lib/image-compressor');
-      const { file: compressedFile, dataUrl } = await compressImage(file, 1200, 1200, 0.82);
+      const { file: compressedFile } = await compressImage(file, 1000, 1000, 0.75);
 
-      // 2. Subir directamente al endpoint seguro /api/upload
+      // 2. Subir al endpoint seguro /api/upload
       const formData = new FormData();
       formData.append('file', compressedFile);
 
@@ -55,18 +55,19 @@ export default function PhotoUploader({
         }
       }
 
-      // Fallback ligero comprimido (siempre <100KB)
-      onChange([...photos, dataUrl]);
+      // Si /api/upload falla, intentar subir directamente con cliente de Supabase
+      const { uploadPetPhoto } = await import('@/services/reports.service');
+      const directUrl = await uploadPetPhoto(compressedFile);
+      if (directUrl && !directUrl.startsWith('data:')) {
+        onChange([...photos, directUrl]);
+        setIsUploading(false);
+        return;
+      }
+
+      alert('No se pudo subir la foto al servidor. Por favor, verificá tu conexión y volvé a intentar.');
     } catch (err) {
       console.error('Error al procesar foto:', err);
-      // Fallback básico
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        if (typeof reader.result === 'string') {
-          onChange([...photos, reader.result]);
-        }
-      };
-      reader.readAsDataURL(file);
+      alert('Ocurrió un error al procesar la imagen.');
     } finally {
       setIsUploading(false);
     }

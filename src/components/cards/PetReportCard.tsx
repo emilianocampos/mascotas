@@ -11,17 +11,21 @@ import {
   getSpeciesLabel, 
   getSizeLabel,
   capitalizeFirst,
-  capitalizeWords 
+  capitalizeWords,
+  calculateDistanceMeters,
+  parseGeoLocation 
 } from '@/lib/utils';
+import { parseCoordinates, UnifiedReport } from '@/services/reports.service';
 import { MapPin, Clock, Share2, Phone, MessageCircle } from 'lucide-react';
 
 interface PetReportCardProps {
-  report: LostReport | FoundReport;
-  type: 'lost' | 'found';
+  report: LostReport | FoundReport | UnifiedReport;
+  type?: 'lost' | 'found';
+  userLocation?: { lat: number; lng: number } | null;
 }
 
-export function PetReportCard({ report, type }: PetReportCardProps) {
-  const isLost = type === 'lost';
+export function PetReportCard({ report, type, userLocation }: PetReportCardProps) {
+  const isLost = type ? type === 'lost' : ('report_type' in report ? report.report_type === 'lost' : 'last_seen_date' in report);
   const lostRep = isLost ? (report as LostReport) : null;
   const foundRep = !isLost ? (report as FoundReport) : null;
 
@@ -33,10 +37,22 @@ export function PetReportCard({ report, type }: PetReportCardProps) {
   const species = report.pet?.species || 'dog';
   const details = report.pet?.distinctive_features || report.description;
 
+  // Extraer coordenadas de la mascota
+  const petCoords = parseCoordinates(isLost ? lostRep?.last_seen_location : foundRep?.found_location);
+
+  // Calcular distancia precisa con GPS del dispositivo si está disponible
+  const computedDistance = userLocation
+    ? calculateDistanceMeters(userLocation.lat, userLocation.lng, petCoords.latitude, petCoords.longitude)
+    : report.distance_meters;
+
+  const detailHref = isLost
+    ? `/mascotas-perdidas/${report.id}`
+    : `/mascotas-encontradas/${report.id}`;
+
   const handleShare = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    const url = `${window.location.origin}/mascotas-perdidas/${report.id}`;
+    const url = `${window.location.origin}${detailHref}`;
     if (navigator.share) {
       navigator.share({
         title: `🐾 ${petName} en ${capitalizeWords(report.approximate_address)}`,
@@ -51,7 +67,7 @@ export function PetReportCard({ report, type }: PetReportCardProps) {
 
   return (
     <div className="group bg-white dark:bg-zinc-900 rounded-2xl overflow-hidden border border-zinc-200 dark:border-zinc-800 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col justify-between">
-      <Link href={`/mascotas-perdidas/${report.id}`} className="block">
+      <Link href={detailHref} className="block">
         {/* Thumbnail Container */}
         <div className="relative aspect-16/11 w-full overflow-hidden bg-zinc-100 dark:bg-zinc-800">
           <img
@@ -70,11 +86,11 @@ export function PetReportCard({ report, type }: PetReportCardProps) {
             </span>
           </div>
 
-          {/* Distance Badge */}
-          {report.distance_meters !== undefined && (
-            <div className="absolute bottom-2.5 right-2.5 px-2.5 py-1 rounded-full bg-orange-600 text-white font-bold text-xs shadow-md flex items-center gap-1">
-              <MapPin className="w-3 h-3" />
-              {formatDistance(report.distance_meters)}
+          {/* Distance Badge (Calculado con GPS exacto) */}
+          {computedDistance !== undefined && computedDistance !== null && (
+            <div className="absolute bottom-2.5 right-2.5 px-2.5 py-1 rounded-full bg-orange-600/90 backdrop-blur-md text-white border border-orange-400/40 font-black text-xs shadow-md flex items-center gap-1">
+              <MapPin className="w-3 h-3 text-white" />
+              <span>{formatDistance(computedDistance)}</span>
             </div>
           )}
         </div>

@@ -293,12 +293,14 @@ export async function getUnifiedMapData(
   }
 }
 
-// 2. Obtener Mascotas Perdidas por proximidad (optimizado, sin timeouts)
+// 2. Obtener Mascotas Perdidas por proximidad (optimizado, sin timeouts, paginado)
 export async function getNearbyLostReports(
   lat: number = -43.24895,
   lng: number = -65.30505,
   radiusMeters: number = 10000,
-  species?: PetSpecies | 'all'
+  species?: PetSpecies | 'all',
+  limit: number = 6,
+  offset: number = 0
 ): Promise<LostReport[]> {
   const supabase = createBrowserClient();
   try {
@@ -307,7 +309,7 @@ export async function getNearbyLostReports(
       .select('id, user_id, pet_id, status, last_seen_date, last_seen_location, approximate_address, description, contact_phone, contact_name, contact_phone_public, created_at, pet:pets(*)')
       .eq('status', 'ACTIVE')
       .order('created_at', { ascending: false })
-      .limit(40);
+      .range(offset, offset + limit - 1);
 
     if (error) {
       console.warn('Aviso al consultar lost_reports:', error?.message || error);
@@ -340,12 +342,14 @@ export async function getNearbyLostReports(
   }
 }
 
-// 3. Obtener Mascotas Encontradas (optimizado)
+// 3. Obtener Mascotas Encontradas (optimizado, paginado)
 export async function getNearbyFoundReports(
   lat: number = -43.24895,
   lng: number = -65.30505,
   radiusMeters: number = 10000,
-  species?: PetSpecies | 'all'
+  species?: PetSpecies | 'all',
+  limit: number = 6,
+  offset: number = 0
 ): Promise<FoundReport[]> {
   const supabase = createBrowserClient();
   try {
@@ -354,7 +358,7 @@ export async function getNearbyFoundReports(
       .select('id, finder_id, pet_id, status, found_date, found_location, approximate_address, is_holding, description, created_at, pet:pets(*)')
       .eq('status', 'ACTIVE')
       .order('created_at', { ascending: false })
-      .limit(40);
+      .range(offset, offset + limit - 1);
 
     if (error) {
       console.warn('Aviso al consultar found_reports:', error?.message || error);
@@ -390,6 +394,85 @@ export async function getNearbyFoundReports(
 export type UnifiedReport = 
   | (LostReport & { report_type: 'lost' })
   | (FoundReport & { report_type: 'found' });
+
+// 3b. Obtener Todos los Reportes Publicados (Perdidas y Encontradas unificadas, paginado de 6 en 6)
+export async function getAllPublishedReports(
+  lat: number = -43.24895,
+  lng: number = -65.30505,
+  radiusMeters: number = 10000,
+  filterType: 'all' | 'lost' | 'found' = 'all',
+  species?: PetSpecies | 'all',
+  limit: number = 6,
+  offset: number = 0
+): Promise<UnifiedReport[]> {
+  const supabase = createBrowserClient();
+  try {
+    if (filterType === 'lost') {
+      const lost = await getNearbyLostReports(lat, lng, radiusMeters, species, limit, offset);
+      return lost.map((r) => ({ ...r, report_type: 'lost' as const }));
+    }
+
+    if (filterType === 'found') {
+      const found = await getNearbyFoundReports(lat, lng, radiusMeters, species, limit, offset);
+      return found.map((r) => ({ ...r, report_type: 'found' as const }));
+    }
+
+    // Si es 'all': traer el lote combinado ordenado por fecha de creación
+    const [lostRes, foundRes] = await Promise.all([
+      supabase
+        .from('lost_reports')
+        .select('id, user_id, pet_id, status, last_seen_date, last_seen_location, approximate_address, description, contact_phone, contact_name, contact_phone_public, created_at, pet:pets(*)')
+        .eq('status', 'ACTIVE')
+        .order('created_at', { ascending: false })
+        .range(offset, offset + limit - 1),
+      supabase
+        .from('found_reports')
+        .select('id, finder_id, pet_id, status, found_date, found_location, approximate_address, is_holding, description, created_at, pet:pets(*)')
+        .eq('status', 'ACTIVE')
+        .order('created_at', { ascending: false })
+        .range(offset, offset + limit - 1),
+    ]);
+
+    const rawLost = (lostRes.data || []).map((row: any) => {
+      const coords = parseCoordinates(row.last_seen_location);
+      const dist = calculateDistanceMeters(lat, lng, coords.latitude, coords.longitude);
+      return {
+        ...row,
+        report_type: 'lost' as const,
+        last_seen_location: coords,
+        distance_meters: dist,
+      };
+    });
+
+    const rawFound = (foundRes.data || []).map((row: any) => {
+      const coords = parseCoordinates(row.found_location);
+      const dist = calculateDistanceMeters(lat, lng, coords.latitude, coords.longitude);
+      return {
+        ...row,
+        report_type: 'found' as const,
+        found_location: coords,
+        distance_meters: dist,
+      };
+    });
+
+    let combined: UnifiedReport[] = [...rawLost, ...rawFound];
+
+    if (species && species !== 'all') {
+      combined = combined.filter((r) => r.pet?.species === species);
+    }
+
+    if (radiusMeters > 0) {
+      combined = combined.filter((r) => (r.distance_meters || 0) <= radiusMeters);
+    }
+
+    // Ordenar por fecha más reciente de publicación y tomar exactamente el límite
+    combined.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    return combined.slice(0, limit);
+  } catch (err) {
+    console.warn('Error en getAllPublishedReports:', err);
+    return [];
+  }
+}
 
 // 4. Obtener Ficha de Mascota Perdida por ID
 export async function getLostReportById(id: string): Promise<LostReport | null> {
