@@ -2,6 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
+import { motion, useMotionValue, useSpring, useTransform } from 'framer-motion';
 import { LostReport, FoundReport } from '@/types';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { 
@@ -9,14 +10,12 @@ import {
   formatTimeAgo, 
   getSpeciesEmoji, 
   getSpeciesLabel, 
-  getSizeLabel,
-  capitalizeFirst,
-  capitalizeWords,
-  calculateDistanceMeters,
-  parseGeoLocation 
+  capitalizeFirst, 
+  capitalizeWords, 
+  calculateDistanceMeters 
 } from '@/lib/utils';
 import { parseCoordinates, UnifiedReport } from '@/services/reports.service';
-import { MapPin, Clock, Share2, Phone, MessageCircle } from 'lucide-react';
+import { MapPin, Clock, Share2 } from 'lucide-react';
 
 interface PetReportCardProps {
   report: LostReport | FoundReport | UnifiedReport;
@@ -53,113 +52,171 @@ export function PetReportCard({ report, type, userLocation }: PetReportCardProps
     e.preventDefault();
     e.stopPropagation();
     const url = `${window.location.origin}${detailHref}`;
-    if (navigator.share) {
+    if (typeof navigator !== 'undefined' && navigator.share) {
       navigator.share({
         title: `🐾 ${petName} en ${capitalizeWords(report.approximate_address)}`,
         text: `Ayudanos a difundir: ${capitalizeFirst(report.description)}`,
         url,
       });
-    } else {
+    } else if (typeof navigator !== 'undefined' && navigator.clipboard) {
       navigator.clipboard.writeText(url);
       alert('¡Enlace copiado al portapapeles para compartir en WhatsApp o Facebook!');
     }
   };
 
+  // --- EFECTO PARALAJE 3D OPTIMIZADO (Zero re-renders, 100% acelerado por GPU) ---
+  const mouseX = useMotionValue(0);
+  const mouseY = useMotionValue(0);
+
+  // Resortes suaves de alta respuesta
+  const springX = useSpring(mouseX, { stiffness: 260, damping: 25 });
+  const springY = useSpring(mouseY, { stiffness: 260, damping: 25 });
+
+  // Inclinación 3D sutil y elegante
+  const rotateX = useTransform(springY, [-0.5, 0.5], ['5deg', '-5deg']);
+  const rotateY = useTransform(springX, [-0.5, 0.5], ['-5deg', '5deg']);
+
+  // Micro-paralaje en la imagen interior
+  const imgTranslateX = useTransform(springX, [-0.5, 0.5], ['-2%', '2%']);
+  const imgTranslateY = useTransform(springY, [-0.5, 0.5], ['-2%', '2%']);
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const width = rect.width;
+    const height = rect.height;
+    if (width === 0 || height === 0) return;
+    const xPct = (e.clientX - rect.left) / width - 0.5;
+    const yPct = (e.clientY - rect.top) / height - 0.5;
+    mouseX.set(xPct);
+    mouseY.set(yPct);
+  };
+
+  const handleMouseLeave = () => {
+    mouseX.set(0);
+    mouseY.set(0);
+  };
+
   return (
-    <div className="group bg-white dark:bg-zinc-900 rounded-2xl overflow-hidden border border-zinc-200 dark:border-zinc-800 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col justify-between">
-      <Link href={detailHref} className="block">
-        {/* Thumbnail Container */}
-        <div className="relative aspect-16/11 w-full overflow-hidden bg-zinc-100 dark:bg-zinc-800">
-          <img
-            src={photo}
-            alt={petName}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-            loading="lazy"
-          />
+    <div style={{ perspective: 1000 }} className="h-full">
+      <motion.div
+        onMouseMove={handleMouseMove}
+        onMouseLeave={handleMouseLeave}
+        style={{
+          rotateX,
+          rotateY,
+          transformStyle: 'preserve-3d',
+        }}
+        initial={{ opacity: 0, y: 15 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, margin: '-30px' }}
+        transition={{ duration: 0.35, ease: 'easeOut' }}
+        className="group bg-white dark:bg-zinc-900 rounded-2xl overflow-hidden border border-zinc-200 dark:border-zinc-800 shadow-sm hover:shadow-xl transition-shadow duration-300 flex flex-col justify-between h-full will-change-transform"
+      >
+        <Link href={detailHref} className="block">
+          {/* Contenedor de Imagen con capa de paralaje */}
+          <div className="relative aspect-16/11 w-full overflow-hidden bg-zinc-100 dark:bg-zinc-800">
+            <motion.img
+              src={photo}
+              alt={petName}
+              style={{
+                x: imgTranslateX,
+                y: imgTranslateY,
+                scale: 1.05,
+              }}
+              className="w-full h-full object-cover transition-transform duration-300"
+              loading="lazy"
+            />
 
-          {/* Badges Overlay */}
-          <div className="absolute top-2.5 left-2.5 flex flex-col gap-1.5 items-start">
-            <StatusBadge status={report.status} />
-            <span className="px-2 py-0.5 rounded-md bg-black/60 backdrop-blur-md text-white text-[11px] font-semibold flex items-center gap-1 shadow-xs">
-              <span>{getSpeciesEmoji(species)}</span>
-              <span>{getSpeciesLabel(species)}</span>
-            </span>
-          </div>
-
-          {/* Distance Badge (Calculado con GPS exacto) */}
-          {computedDistance !== undefined && computedDistance !== null && (
-            <div className="absolute bottom-2.5 right-2.5 px-2.5 py-1 rounded-full bg-orange-600/90 backdrop-blur-md text-white border border-orange-400/40 font-black text-xs shadow-md flex items-center gap-1">
-              <MapPin className="w-3 h-3 text-white" />
-              <span>{formatDistance(computedDistance)}</span>
-            </div>
-          )}
-        </div>
-
-        {/* Content */}
-        <div className="p-4 space-y-2.5">
-          <div className="flex items-start justify-between gap-2">
-            <div>
-              <h3 className="font-extrabold text-lg text-zinc-900 dark:text-zinc-100 group-hover:text-orange-600 transition-colors line-clamp-1">
-                {petName}
-              </h3>
-              {report.pet?.breed && (
-                <p className="text-xs text-zinc-500 font-bold">{capitalizeWords(report.pet.breed)}</p>
-              )}
-            </div>
-            <button
-              onClick={handleShare}
-              aria-label="Compartir publicación"
-              className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+            {/* Badges Overlay con elevación 3D */}
+            <div
+              style={{ transform: 'translateZ(20px)' }}
+              className="absolute top-2.5 left-2.5 flex flex-col gap-1.5 items-start pointer-events-none"
             >
-              <Share2 className="w-4 h-4" />
-            </button>
+              <StatusBadge status={report.status} />
+              <span className="px-2 py-0.5 rounded-md bg-black/60 backdrop-blur-md text-white text-[11px] font-semibold flex items-center gap-1 shadow-xs">
+                <span>{getSpeciesEmoji(species)}</span>
+                <span>{getSpeciesLabel(species)}</span>
+              </span>
+            </div>
+
+            {/* Distance Badge */}
+            {computedDistance !== undefined && computedDistance !== null && (
+              <div
+                style={{ transform: 'translateZ(25px)' }}
+                className="absolute bottom-2.5 right-2.5 px-2.5 py-1 rounded-full bg-orange-600/90 backdrop-blur-md text-white border border-orange-400/40 font-black text-xs shadow-md flex items-center gap-1 pointer-events-none"
+              >
+                <MapPin className="w-3 h-3 text-white" />
+                <span>{formatDistance(computedDistance)}</span>
+              </div>
+            )}
           </div>
 
-          {/* Location & Time */}
-          <div className="space-y-1 text-xs text-zinc-600 dark:text-zinc-400">
-            <div className="flex items-center gap-1.5 line-clamp-1">
-              <MapPin className="w-3.5 h-3.5 text-orange-500 shrink-0" />
-              <span className="font-bold text-zinc-700 dark:text-zinc-300">{capitalizeWords(report.approximate_address)}</span>
-            </div>
-            <div className="flex items-center gap-1.5 text-zinc-500">
-              <Clock className="w-3.5 h-3.5 shrink-0" />
-              <span>
-                <span className="font-semibold text-zinc-700 dark:text-zinc-300">{isLost ? 'Se extravió' : 'Encontrado'} {formatTimeAgo(eventDate)}</span>
-                {createdDate && (
-                  <span className="text-zinc-400 dark:text-zinc-500 text-[11px] ml-1">
-                    • Pub. {formatTimeAgo(createdDate)}
-                  </span>
+          {/* Contenido de la Card */}
+          <div className="p-4 space-y-2.5">
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <h3 className="font-extrabold text-lg text-zinc-900 dark:text-zinc-100 group-hover:text-orange-600 transition-colors line-clamp-1">
+                  {petName}
+                </h3>
+                {report.pet?.breed && (
+                  <p className="text-xs text-zinc-500 font-bold">{capitalizeWords(report.pet.breed)}</p>
                 )}
-              </span>
+              </div>
+              <button
+                onClick={handleShare}
+                aria-label="Compartir publicación"
+                className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+              >
+                <Share2 className="w-4 h-4" />
+              </button>
             </div>
+
+            {/* Ubicación y Tiempo */}
+            <div className="space-y-1 text-xs text-zinc-600 dark:text-zinc-400">
+              <div className="flex items-center gap-1.5 line-clamp-1">
+                <MapPin className="w-3.5 h-3.5 text-orange-500 shrink-0" />
+                <span className="font-bold text-zinc-700 dark:text-zinc-300">{capitalizeWords(report.approximate_address)}</span>
+              </div>
+              <div className="flex items-center gap-1.5 text-zinc-500">
+                <Clock className="w-3.5 h-3.5 shrink-0" />
+                <span>
+                  <span className="font-semibold text-zinc-700 dark:text-zinc-300">{isLost ? 'Se extravió' : 'Encontrado'} {formatTimeAgo(eventDate)}</span>
+                  {createdDate && (
+                    <span className="text-zinc-400 dark:text-zinc-500 text-[11px] ml-1">
+                      • Pub. {formatTimeAgo(createdDate)}
+                    </span>
+                  )}
+                </span>
+              </div>
+            </div>
+
+            {/* Detalles / Rasgos Particulares */}
+            {details && (
+              <div className="pt-2 border-t border-zinc-100 dark:border-zinc-800/80">
+                <span className="text-[10px] font-black text-zinc-500 dark:text-zinc-400 block mb-0.5 uppercase tracking-wide">
+                  Detalles / rasgos particulares:
+                </span>
+                <p className="text-xs text-zinc-700 dark:text-zinc-300 line-clamp-2 leading-relaxed font-semibold">
+                  {capitalizeFirst(details)}
+                </p>
+              </div>
+            )}
           </div>
+        </Link>
 
-          {/* Detalles / Rasgos Particulares */}
-          {details && (
-            <div className="pt-2 border-t border-zinc-100 dark:border-zinc-800/80">
-              <span className="text-[10px] font-black text-zinc-500 dark:text-zinc-400 block mb-0.5 uppercase tracking-wide">
-                Detalles / rasgos particulares:
-              </span>
-              <p className="text-xs text-zinc-700 dark:text-zinc-300 line-clamp-2 leading-relaxed font-semibold">
-                {capitalizeFirst(details)}
-              </p>
-            </div>
-          )}
-        </div>
-      </Link>
-
-      {/* Botón de acción directa si es perdida: "¿Viste a [Nombre]?" */}
-      {isLost && report.status === 'ACTIVE' && (
-        <div className="p-3 pt-0">
-          <Link
-            href={`/publicar/avistamiento?reportId=${report.id}&petName=${encodeURIComponent(petName)}`}
-            className="w-full py-2.5 px-3 rounded-xl bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 dark:hover:bg-amber-900/50 text-amber-900 dark:text-amber-200 border border-amber-200 dark:border-amber-800 font-extrabold text-xs flex items-center justify-center gap-1.5 transition-all transform active:scale-98 text-center"
-          >
-            <span className="w-2 h-2 rounded-full bg-amber-500"></span>
-            <span>¿Viste a {petName}? Aportar avistamiento</span>
-          </Link>
-        </div>
-      )}
+        {/* Botón de acción directa si es perdida: "¿Viste a [Nombre]?" */}
+        {isLost && report.status === 'ACTIVE' && (
+          <div className="p-3 pt-0">
+            <Link
+              href={`/publicar/avistamiento?reportId=${report.id}&petName=${encodeURIComponent(petName)}`}
+              className="w-full py-2.5 px-3 rounded-xl bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 dark:hover:bg-amber-900/50 text-amber-900 dark:text-amber-200 border border-amber-200 dark:border-amber-800 font-extrabold text-xs flex items-center justify-center gap-1.5 transition-all transform active:scale-98 text-center"
+            >
+              <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+              <span>¿Viste a {petName}? Aportar avistamiento</span>
+            </Link>
+          </div>
+        )}
+      </motion.div>
     </div>
   );
 }
